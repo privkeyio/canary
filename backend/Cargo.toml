@@ -117,7 +117,9 @@ path = "system_tests/blake2b_hardfork_headers.rs"
 # "data not consumed entirely when explicitly deserializing".
 #
 # Both crates are pinned to an immutable rev rather than a branch, since they carry consensus code.
+# Each rev is also tagged in its repo (blake2b-hardfork-0.32-v1, blake2b-extended-headers-v1) so a
+# force-push cannot orphan it and break every clean build, including the Docker image.
 # bdk_wallet and bdk_electrum need no fork; they inherit the fix through `bitcoin`.
 [patch.crates-io]
-bitcoin = { git = "https://github.com/privkeyio/rust-bitcoin", rev = "a1c5728d88eb93404954e86ca4fcfdb5cc2f1613" }
-electrum-client = { git = "https://github.com/privkeyio/rust-electrum-client", rev = "93307cdc75b9ab95e43499c6af75fa2ab6bda8fb" }
+bitcoin = { git = "https://github.com/privkeyio/rust-bitcoin", rev = "e9aa336977e334f29fbe440a0dc0d21fa739fbf6" }
+electrum-client = { git = "https://github.com/privkeyio/rust-electrum-client", rev = "b5c4e202c84e39791e50e92ca576b2ad38bed02e" }

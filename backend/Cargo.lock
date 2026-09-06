@@ -417,7 +417,7 @@ dependencies = [
 [[package]]
 name = "bitcoin"
 version = "0.32.11"
-source = "git+https://github.com/privkeyio/rust-bitcoin?rev=a1c5728d88eb93404954e86ca4fcfdb5cc2f1613#a1c5728d88eb93404954e86ca4fcfdb5cc2f1613"
+source = "git+https://github.com/privkeyio/rust-bitcoin?rev=e9aa336977e334f29fbe440a0dc0d21fa739fbf6#e9aa336977e334f29fbe440a0dc0d21fa739fbf6"
 dependencies = [
  "base58ck",
  "base64 0.21.7",
@@ -1132,7 +1132,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 [[package]]
 name = "electrum-client"
 version = "0.25.0"
-source = "git+https://github.com/privkeyio/rust-electrum-client?rev=93307cdc75b9ab95e43499c6af75fa2ab6bda8fb#93307cdc75b9ab95e43499c6af75fa2ab6bda8fb"
+source = "git+https://github.com/privkeyio/rust-electrum-client?rev=b5c4e202c84e39791e50e92ca576b2ad38bed02e#b5c4e202c84e39791e50e92ca576b2ad38bed02e"
 dependencies = [
  "bitcoin 0.32.11",
  "byteorder",

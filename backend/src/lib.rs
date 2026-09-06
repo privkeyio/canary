@@ -8,6 +8,15 @@ extern crate rust_i18n;
 // Fallback to English (US) if translation is missing
 i18n!("locales", fallback = "en-US");
 
+/// Fails the build unless `bitcoin` is the fork carrying BLAKE2b hardfork support.
+///
+/// Syncing against a Knots-backed Electrum server needs the extended 164 byte block header, which
+/// the `[patch.crates-io]` entries in Cargo.toml supply. Cargo only honours `[patch]` in the
+/// workspace being built, so dropping or mistyping an entry, or depending on this crate as a
+/// library, would otherwise resolve the stock crates and compile clean, then mis-parse headers at
+/// runtime past the activation height. `V2_SIZE` exists only on the fork.
+const _: usize = bdk_wallet::bitcoin::block::Header::V2_SIZE;
+
 pub mod admin_notifications;
 pub mod api;
 pub mod auth;
