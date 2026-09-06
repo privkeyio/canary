@@ -106,3 +106,18 @@ path = "system_tests/mempool_chain_scenarios.rs"
 [[test]]
 name = "address_watch_scenarios"
 path = "system_tests/address_watch_scenarios.rs"
+
+[[test]]
+name = "blake2b_hardfork_headers"
+path = "system_tests/blake2b_hardfork_headers.rs"
+
+# Bitcoin Knots' BLAKE2b proof-of-work hardfork made the block header self-describing: past the
+# activation height it may be 164 bytes rather than 80. Stock rust-bitcoin parses 80 and rejects
+# the rest, which is why syncing against a Knots-backed Electrum server fails with
+# "data not consumed entirely when explicitly deserializing".
+#
+# Both crates are pinned to an immutable rev rather than a branch, since they carry consensus code.
+# bdk_wallet and bdk_electrum need no fork; they inherit the fix through `bitcoin`.
+[patch.crates-io]
+bitcoin = { git = "https://github.com/privkeyio/rust-bitcoin", rev = "a1c5728d88eb93404954e86ca4fcfdb5cc2f1613" }
+electrum-client = { git = "https://github.com/privkeyio/rust-electrum-client", rev = "93307cdc75b9ab95e43499c6af75fa2ab6bda8fb" }
