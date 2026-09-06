@@ -1,3 +1,38 @@
+# Canary with BLAKE2b proof of work
+
+This is an unofficial fork of [Canary](https://github.com/schjonhaug/canary) that follows the BLAKE2b proof-of-work hardfork of Bitcoin. It is not affiliated with the Canary project. Upstream has not adopted the fork, so use upstream instead if that is what you want.
+
+> **Not reviewed by upstream.** Everything below the divider is upstream's documentation and describes Canary rather than this fork.
+
+## What differs from upstream
+
+Nothing in Canary's own code. Past the hardfork's activation height a block header is 164 bytes and its id is a BLAKE2b hash rather than 80 bytes and SHA256d; stock rust-bitcoin parses 80 and rejects the rest, so every header lookup fails with `parse failed: data not consumed entirely when explicitly deserializing`, no wallet syncs, and the queue backs up indefinitely.
+
+The fix is entirely in the dependencies, pinned by immutable git rev in `backend/Cargo.toml`:
+
+| Crate | Fork | What it adds |
+| --- | --- | --- |
+| `bitcoin` | [privkeyio/rust-bitcoin](https://github.com/privkeyio/rust-bitcoin) | The extended 164 byte header and its BLAKE2b block id |
+| `electrum-client` | [privkeyio/rust-electrum-client](https://github.com/privkeyio/rust-electrum-client) | Splits a batch of concatenated headers by length rather than a fixed 80 byte stride |
+
+`bdk_wallet` and `bdk_electrum` need no fork; they inherit the fix through `bitcoin`. A build guard in `backend/src/lib.rs` fails the build outright if the patched crates are ever missing, rather than letting the mis-parse surface at runtime past the activation height.
+
+## Requires a Knots-backed Electrum server
+
+Only Bitcoin Knots schedules the hardfork, and only a BLAKE2b-aware Electrum server serves the extended headers. A standard Fulcrum stops at the activation block rather than serving wrong data, and Electrs has no build that understands the new form at all.
+
+## Branches
+
+| Branch | Base | Use |
+| --- | --- | --- |
+| `master` | upstream `master` | The fork's line. Carries the dependency patches. |
+
+## Verification
+
+The whole chain is verified against a live Knots-backed Electrum server, and `backend/system_tests/blake2b_hardfork_headers.rs` drives the real client over a socket against a fake one, asserting both the recombined timestamp and the BLAKE2b block id. Removing the patches reproduces the production error exactly.
+
+---
+
 # Canary Wallet
 
 <img src="frontend/public/images/canary.svg" alt="Canary Wallet Logo" width="100" height="86">
