@@ -53,8 +53,23 @@ export interface UserPreferencesResponse {
   ntfy_username: string | null
 }
 
-export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook'
+export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook' | 'telegram'
 export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
+
+export type SavedNotificationTestRef = {
+  walletChecksum: string
+  contactId: string
+  methodId: string
+}
+
+function savedTestFields(saved?: SavedNotificationTestRef) {
+  if (!saved) return {}
+  return {
+    wallet_checksum: saved.walletChecksum,
+    contact_id: saved.contactId,
+    method_id: saved.methodId,
+  }
+}
 
 export interface TestNostrNotificationResponse {
   success: boolean
@@ -186,6 +201,29 @@ class ApiClient {
     )
   }
 
+  async updateTransactionLabel(
+    walletChecksum: string,
+    txid: string,
+    label: string | null,
+  ): Promise<{ label: string | null }> {
+    return this.request<{ label: string | null }>(
+      `/api/wallets/${walletChecksum}/transactions/${txid}/label`,
+      { method: 'PUT', body: JSON.stringify({ label }) },
+    )
+  }
+
+  async exportBip329Labels(walletChecksum: string): Promise<string> {
+    const result = await this.request<{ content: string }>(`/api/wallets/${walletChecksum}/labels`)
+    return result.content
+  }
+
+  async importBip329Labels(walletChecksum: string, content: string): Promise<{ imported: number; skipped: number }> {
+    return this.request<{ imported: number; skipped: number }>(`/api/wallets/${walletChecksum}/labels`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    })
+  }
+
   async getWalletNotifications(checksum: string): Promise<WalletNotificationsResponse> {
     return this.request<WalletNotificationsResponse>(`/api/wallets/${checksum}/notifications`)
   }
@@ -292,6 +330,17 @@ class ApiClient {
     return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings')
   }
 
+  async getTelegramSettings(): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('/api/telegram/settings')
+  }
+
+  async updateTelegramSettings(botToken: string): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('/api/telegram/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ bot_token: botToken }),
+    })
+  }
+
   async updateNostrSettings(dmMode: NostrDmMode): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
     return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings', {
       method: 'PUT',
@@ -299,10 +348,10 @@ class ApiClient {
     })
   }
 
-  async sendTestNostrNotification(recipient: string, dmMode?: NostrDmMode): Promise<TestNostrNotificationResponse> {
+  async sendTestNostrNotification(recipient: string, dmMode?: NostrDmMode, saved?: SavedNotificationTestRef): Promise<TestNostrNotificationResponse> {
     return this.request<TestNostrNotificationResponse>('/api/nostr/test', {
       method: 'POST',
-      body: JSON.stringify({ recipient, dm_mode: dmMode }),
+      body: JSON.stringify({ recipient, dm_mode: dmMode, ...savedTestFields(saved) }),
     })
   }
 
@@ -327,10 +376,10 @@ class ApiClient {
     })
   }
 
-  async login(email: string, password: string): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }> {
+  async login(email: string, password: string, mfaCode?: string): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }> {
     return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, mfa_code: mfaCode }),
     })
   }
 
@@ -526,22 +575,46 @@ class ApiClient {
     })
   }
 
+  async getSupportAccess(): Promise<{ grant: { target_user_id: string; target_email: string; reason: string; expires_at: number } | null; timestamp: number; wallets: Wallet[] }> {
+    return this.request('/api/admin/support-access')
+  }
+
+  async createSupportAccess(email: string, reason: string): Promise<{ grant: { target_user_id: string; target_email: string; reason: string; expires_at: number } | null; timestamp: number; wallets: Wallet[] }> {
+    return this.request('/api/admin/support-access', {
+      method: 'POST',
+      body: JSON.stringify({ email, reason }),
+    })
+  }
+
+  async revokeSupportAccess(): Promise<{ grant: null; timestamp: number; wallets: Wallet[] }> {
+    return this.request('/api/admin/support-access', {
+      method: 'DELETE',
+    })
+  }
+
   // Config API methods
   async getConfig(): Promise<AppConfigResponse> {
     return this.request<AppConfigResponse>('/api/config')
   }
 
-  async sendTestNtfyNotification(topic: string): Promise<{ success: boolean; error?: string }> {
+  async sendTestNtfyNotification(topic: string, saved?: SavedNotificationTestRef): Promise<{ success: boolean; error?: string }> {
     return this.request<{ success: boolean; error?: string }>('/api/ntfy/test', {
       method: 'POST',
-      body: JSON.stringify({ topic }),
+      body: JSON.stringify({ topic, ...savedTestFields(saved) }),
     })
   }
 
-  async sendTestWebhookNotification(url: string): Promise<{ success: boolean; error?: string }> {
+  async sendTestWebhookNotification(url: string, saved?: SavedNotificationTestRef): Promise<{ success: boolean; error?: string }> {
     return this.request<{ success: boolean; error?: string }>('/api/webhook/test', {
       method: 'POST',
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, ...savedTestFields(saved) }),
+    })
+  }
+
+  async sendTestTelegramNotification(chatId: string, saved?: SavedNotificationTestRef): Promise<{ success: boolean; error?: string }> {
+    return this.request<{ success: boolean; error?: string }>('/api/telegram/test', {
+      method: 'POST',
+      body: JSON.stringify({ chat_id: chatId, ...savedTestFields(saved) }),
     })
   }
 }

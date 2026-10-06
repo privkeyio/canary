@@ -213,6 +213,100 @@ async fn test_create_wallet_success() {
 }
 
 #[tokio::test]
+async fn test_create_wallet_accepts_wrapped_sparrow_descriptor() {
+    let (app, _temp_dir) = create_test_app().await;
+    let wrapped = format!("wpkh(\n  {}\n  /<0;1>/*\n)", VALID_TESTNET_XPUB);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Wrapped Sparrow Paste",
+                "descriptor": wrapped
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for descriptor wrapped with whitespace"
+    );
+}
+
+#[tokio::test]
+async fn test_create_wallet_accepts_slip132_sortedmulti_descriptor() {
+    let (app, _temp_dir) = create_test_app().await;
+    let tpub_2 = "tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi";
+    let tpub_3 = "tpubDDCjkgMuodinFyfhacZPTzffAKtCbuZejpkSMJB673c9ZSsVrq5FnL5rhjFjyCDva5Pka7sn9UDe7xmzpRCNnKNqXbteTnPzLRVNcsvCcpk";
+    let vpub_1 =
+        xyzpub::convert_version(VALID_TESTNET_XPUB, &xyzpub::Version::VpubMultisig).unwrap();
+    let vpub_2 = xyzpub::convert_version(tpub_2, &xyzpub::Version::VpubMultisig).unwrap();
+    let vpub_3 = xyzpub::convert_version(tpub_3, &xyzpub::Version::VpubMultisig).unwrap();
+    let descriptor = format!(
+        "wsh(sortedmulti(2,[aaaaaaaa/48h/0h/0h/2h]{vpub_1}/<0;1>/*,[bbbbbbbb/48h/0h/0h/2h]{vpub_2}/<0;1>/*,[cccccccc/48h/0h/0h/2h]{vpub_3}/<0;1>/*))"
+    );
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Sparrow Multisig",
+                "descriptor": descriptor
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for SLIP-132 sortedmulti descriptor"
+    );
+}
+
+#[tokio::test]
+async fn test_create_wallet_rejects_mainnet_slip132_multisig_on_regtest() {
+    let (app, _temp_dir) = create_test_app().await;
+    let xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
+    let zpub = xyzpub::convert_version(xpub, &xyzpub::Version::ZpubMultisig).unwrap();
+    let descriptor = format!("wsh(sortedmulti(2,{zpub}/<0;1>/*,{zpub}/<0;1>/*,{zpub}/<0;1>/*))");
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Mainnet Sparrow Multisig",
+                "descriptor": descriptor
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Expected 400 BAD_REQUEST for mainnet Zpub on regtest"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"].as_str().unwrap(), "network_mismatch");
+}
+
+#[tokio::test]
 async fn test_create_wallet_duplicate_descriptor() {
     let (app, _temp_dir) = create_test_app().await;
 
@@ -1967,4 +2061,119 @@ async fn test_create_address_wallet_network_mismatch() {
         "Error should mention network mismatch: {}",
         error
     );
+}
+
+#[tokio::test]
+async fn test_import_bip329_skips_unlabeled_records_without_clearing() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Labeled Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap().to_string();
+    let labeled_txid = "ab".repeat(32);
+    let other_txid = "cd".repeat(32);
+
+    for txid in [&labeled_txid, &other_txid] {
+        app_services
+            .metadata_db
+            .insert_transaction(&TransactionInsert {
+                txid: txid.clone(),
+                wallet_checksum: checksum.clone(),
+                transaction_type: EventType::Receive,
+                amount_sats: 1_000,
+                fee_sats: None,
+                block_height: Some(100),
+                first_seen_at: 1_000,
+                confirmed_at: Some(1_000),
+                parent_txid: None,
+                transaction_status: "confirmed".to_string(),
+                replaced_by_txid: None,
+                replaced_at: None,
+            })
+            .await
+            .unwrap();
+    }
+    app_services
+        .metadata_db
+        .update_transaction_label(&checksum, &labeled_txid, Some("keep me"))
+        .await
+        .unwrap();
+
+    let content = [
+        r#"{"type":"addr","ref":"bcrt1qexample"}"#,
+        &format!(r#"{{"type":"tx","ref":"{labeled_txid}"}}"#),
+        &format!(r#"{{"type":"tx","ref":"{other_txid}","label":"coffee"}}"#),
+    ]
+    .join("\n");
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/labels"))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(json!({ "content": content }).to_string()))
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["imported"], 1);
+    assert_eq!(body["skipped"], 2);
+
+    let labels = app_services
+        .metadata_db
+        .get_transaction_labels(&checksum)
+        .await
+        .unwrap();
+    assert_eq!(labels.len(), 2);
+    assert!(labels
+        .iter()
+        .any(|label| { label.reference == labeled_txid && label.label == "keep me" }));
+    assert!(labels
+        .iter()
+        .any(|label| { label.reference == other_txid && label.label == "coffee" }));
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/labels"))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "content": format!(r#"{{"type":"tx","ref":"{labeled_txid}","label":123}}"#)
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let labels = app_services
+        .metadata_db
+        .get_transaction_labels(&checksum)
+        .await
+        .unwrap();
+    assert!(labels
+        .iter()
+        .any(|label| { label.reference == labeled_txid && label.label == "keep me" }));
 }

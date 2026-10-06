@@ -5,9 +5,13 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 // Get build commit: prefer env var (Docker build arg), fallback to git
 const { getBuildCommit } = require('./scripts/generate-build-info');
+const { version: packageVersion } = require('./package.json');
 const buildCommit = process.env.NEXT_PUBLIC_BUILD_COMMIT || getBuildCommit();
+const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || packageVersion;
 
 const nextConfig: NextConfig = {
+  // Type-check shipped code during builds; Jest runs test fixtures separately.
+  typescript: { tsconfigPath: './tsconfig.build.json' },
   // Enable Turbopack (Next.js 16 default)
   turbopack: {},
   // Enable standalone output for Docker deployment
@@ -26,6 +30,7 @@ const nextConfig: NextConfig = {
   // Set build commit as environment variable
   env: {
     NEXT_PUBLIC_BUILD_COMMIT: buildCommit || '',
+    NEXT_PUBLIC_APP_VERSION: appVersion || '',
   },
   // Configure API routes with appropriate caching headers
   async headers() {

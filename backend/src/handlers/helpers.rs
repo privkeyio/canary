@@ -9,6 +9,7 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 
+#[derive(Clone, Copy)]
 pub(crate) enum DatabaseErrorMessage {
     Raw,
     Prefix(&'static str),
@@ -72,6 +73,32 @@ pub(crate) fn reject_webhook_in_cloud_mode(config: &AppConfig) -> Option<Respons
     }
 }
 
+pub(crate) fn reject_telegram_in_cloud_mode(config: &AppConfig) -> Option<Response> {
+    if config.is_cloud_mode() {
+        Some(error_response(
+            StatusCode::FORBIDDEN,
+            Some("telegram_self_hosted_only"),
+            "Telegram notifications are only available in self-hosted mode",
+        ))
+    } else {
+        None
+    }
+}
+
+pub(crate) async fn reject_telegram_if_unconfigured(
+    app_services: &AppServicesState,
+) -> Option<Response> {
+    if crate::telegram_provider::is_configured(&app_services.metadata_db).await {
+        None
+    } else {
+        Some(error_response(
+            StatusCode::FORBIDDEN,
+            Some("telegram_not_configured"),
+            "Telegram notifications are not configured on this instance",
+        ))
+    }
+}
+
 pub(crate) async fn verify_wallet_access(
     app_services: &AppServicesState,
     user: &AuthUser,
@@ -94,26 +121,65 @@ pub(crate) async fn verify_wallet_access(
         Err(error) => return Err(database_error_response(error_style, error)),
     };
 
-    if !user.is_admin {
-        let owns_wallet = match app_services
-            .metadata_db
-            .is_wallet_owned_by_user(checksum, &user.user_id)
-            .await
-        {
-            Ok(owns_wallet) => owns_wallet,
-            Err(error) => return Err(database_error_response(error_style, error)),
-        };
+    let owns_wallet = match app_services
+        .metadata_db
+        .is_wallet_owned_by_user(checksum, &user.user_id)
+        .await
+    {
+        Ok(owns_wallet) => owns_wallet,
+        Err(error) => return Err(database_error_response(error_style, error)),
+    };
 
-        if !owns_wallet {
-            return Err(error_response(
-                StatusCode::FORBIDDEN,
-                Some("access_denied"),
-                "Access denied",
-            ));
-        }
+    if !owns_wallet {
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            Some("access_denied"),
+            "Access denied",
+        ));
     }
 
     Ok(wallet)
+}
+
+#[allow(clippy::result_large_err)]
+pub(crate) async fn verify_wallet_read_access(
+    app_services: &AppServicesState,
+    user: &AuthUser,
+    checksum: &str,
+    error_style: DatabaseErrorMessage,
+) -> Result<WalletMetadata, Response> {
+    match verify_wallet_access(app_services, user, checksum, error_style).await {
+        Ok(wallet) => Ok(wallet),
+        Err(denied) => {
+            if !user.is_admin || user.is_demo {
+                return Err(denied);
+            }
+            let wallet = match app_services
+                .metadata_db
+                .get_wallet_by_checksum(checksum)
+                .await
+            {
+                Ok(Some(wallet)) => wallet,
+                Ok(None) => {
+                    return Err(error_response(
+                        StatusCode::NOT_FOUND,
+                        Some("wallet_not_found"),
+                        "Wallet not found",
+                    ));
+                }
+                Err(error) => return Err(database_error_response(error_style, error)),
+            };
+            match app_services
+                .metadata_db
+                .has_active_admin_support_grant(&user.user_id, &wallet.user_id)
+                .await
+            {
+                Ok(true) => Ok(wallet),
+                Ok(false) => Err(denied),
+                Err(error) => Err(database_error_response(error_style, error)),
+            }
+        }
+    }
 }
 
 pub(crate) async fn get_user_or_error(

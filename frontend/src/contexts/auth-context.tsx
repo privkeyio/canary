@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/utils'
 import { setStoredLocale, clearStoredLocale } from '@/lib/locale'
 import { type Locale, locales } from '@/i18n/config'
 import { invalidateTxExplorerCache } from '@/hooks/useTxExplorer'
+import { resetNotificationDraftSessions } from '@/components/wallet-notifications/notification-draft-store'
 
 interface User {
   id: number
@@ -46,7 +47,7 @@ interface AuthContextType {
   isCloudMode: boolean
   isSelfHostedMode: boolean
   register: (email: string, password: string, name: string, marketingEmails?: boolean) => Promise<void>
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, mfaCode?: string) => Promise<void>
   demoLogin: () => Promise<void>
   setAuth: (user: User) => Promise<void>
   forgotPassword: (email: string) => Promise<void>
@@ -93,6 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     invalidateTxExplorerCache()
   }, [user?.id])
+
+  // Any authenticated request can discover that an administrator's short
+  // reauthentication window has elapsed. Clear local state immediately so the
+  // sign-in page can collect a fresh password and MFA code without a refresh.
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null)
+      setBillingStatus(null)
+      clearStoredLocale()
+      router.push('/sign-in')
+    }
+    window.addEventListener('canary-auth-expired', handleAuthExpired)
+    return () => window.removeEventListener('canary-auth-expired', handleAuthExpired)
+  }, [router])
 
   // Sync locale cookie from user's stored preference (used on page refresh when already logged in)
   const syncLocaleFromUser = useCallback((userData: User) => {
@@ -170,9 +185,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.register(email, password, name, marketingEmails)
   }
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, mfaCode?: string) => {
     // The login API will set an HttpOnly cookie with the JWT
-    const data = await api.login(email, password)
+    const data = await api.login(email, password, mfaCode)
+    resetNotificationDraftSessions()
     setUser(data.user)
 
     if (isSelfHostedMode) {
@@ -180,19 +196,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const destination = data.user.is_admin ? '/support' : '/'
     // Set locale cookie and force full page reload to apply new locale
     if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
       setStoredLocale(data.user.preferred_language as Locale)
       // Force hard navigation to re-run server-side locale detection
-      window.location.href = '/'
+      window.location.href = destination
     } else {
-      router.push('/')
+      router.push(destination)
     }
   }
 
   const demoLogin = async () => {
     // The demo login API will set an HttpOnly cookie with the JWT
     const data = await api.demoLogin()
+    resetNotificationDraftSessions()
     setUser(data.user)
 
     // Set locale cookie and force full page reload to apply new locale
@@ -237,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Clear locale cookie so next user doesn't inherit this user's language
     clearStoredLocale()
+    resetNotificationDraftSessions()
 
     setUser(null)
     setBillingStatus(null)

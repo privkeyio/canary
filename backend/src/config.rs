@@ -576,6 +576,10 @@ impl AppConfig {
         let btcpay_offering_id = std::env::var("BTCPAY_OFFERING_ID").ok();
         let btcpay_plan_id = std::env::var("BTCPAY_PLAN_ID").ok();
 
+        if let Err(error) = crate::nostr_provider::nostr_onion_socks_proxy_from_env() {
+            return Err(anyhow!(error));
+        }
+
         if operating_mode == OperatingMode::SelfHosted {
             if jwt_secret
                 .as_deref()
@@ -734,13 +738,31 @@ impl AppConfig {
         }
     }
 
+    /// Isolated restore drills disable billing and customer notifications even
+    /// when production credentials are present in the environment.
+    pub fn restore_drill_enabled() -> bool {
+        matches!(
+            std::env::var("CANARY_RESTORE_DRILL")
+                .ok()
+                .as_deref()
+                .map(str::trim),
+            Some("1") | Some("true") | Some("yes") | Some("on")
+        )
+    }
+
+    pub fn is_restore_drill(&self) -> bool {
+        Self::restore_drill_enabled()
+    }
+
     /// Check if BTCPay Server integration is fully configured
     pub fn is_btcpay_enabled(&self) -> bool {
-        self.btcpay_url
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .is_some()
+        !self.is_restore_drill()
+            && self
+                .btcpay_url
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_some()
             && self
                 .btcpay_api_key
                 .as_deref()
@@ -757,13 +779,17 @@ impl AppConfig {
 
     /// Check if Stripe billing is configured
     pub fn is_stripe_enabled(&self) -> bool {
-        Self::non_empty_env_var("STRIPE_SECRET_KEY").is_some()
+        !self.is_restore_drill()
+            && Self::non_empty_env_var("STRIPE_SECRET_KEY").is_some()
             && Self::non_empty_env_var("STRIPE_WEBHOOK_SECRET").is_some()
     }
 
     /// Determine which cloud billing provider should be used.
     /// Stripe wins if both are configured so existing deployments stay unchanged.
     pub fn active_billing_provider(&self) -> Option<BillingProvider> {
+        if self.is_restore_drill() {
+            return None;
+        }
         if self.is_stripe_enabled() {
             Some(BillingProvider::Stripe)
         } else if self.btcpay_cloud_plan_config().is_some() {
@@ -853,8 +879,9 @@ impl AppConfig {
 
     /// Check if ntfy provider should be enabled
     pub fn is_ntfy_enabled(&self) -> bool {
-        // ntfy is always available. Self-hosted mode may also register local-only providers.
-        true
+        // ntfy is always available except during isolated restore drills.
+        // Self-hosted mode may also register local-only providers.
+        !self.is_restore_drill()
     }
 
     /// Get the default ntfy server URL.
@@ -877,12 +904,36 @@ impl AppConfig {
                 .any(|server| server.base_url.trim_end_matches('/') == normalized_server_url)
     }
 
+    /// Private ntfy destinations are supported on every self-hosted deployment.
+    pub fn ntfy_outbound_policy(&self) -> crate::outbound_target::OutboundTargetPolicy {
+        use crate::outbound_target::OutboundTargetPolicy;
+        if self.is_self_hosted_mode() {
+            OutboundTargetPolicy::SelfHostedNtfy
+        } else {
+            OutboundTargetPolicy::PublicOnly
+        }
+    }
+
+    pub fn ntfy_provider(
+        &self,
+        server_url: String,
+        auth: NtfyAuth,
+        user_configured_server_url: Option<&str>,
+    ) -> crate::ntfy_provider::NtfyProvider {
+        use crate::ntfy_provider::NtfyProvider;
+        if self.should_trust_ntfy_server_url(&server_url, user_configured_server_url) {
+            NtfyProvider::with_trusted_auth(server_url, auth)
+        } else {
+            NtfyProvider::with_policy(server_url, auth, self.ntfy_outbound_policy())
+        }
+    }
+
     /// Whether an ntfy server may bypass public-network validation.
     ///
     /// Operator-configured defaults are trusted when the user has not selected
     /// another server. A saved user preference is trusted only when it exactly
     /// matches a detected self-hosted integration. This keeps migrated Umbrel
-    /// and StartOS preferences working without allowing arbitrary private URLs.
+    /// and StartOS preferences working with their existing trusted-client behavior.
     pub fn should_trust_ntfy_server_url(
         &self,
         server_url: &str,
@@ -963,7 +1014,7 @@ impl AppConfig {
     /// Check if Twilio SMS provider should be enabled
     pub fn is_twilio_enabled(&self) -> bool {
         // Only allow Twilio in cloud mode, and only if configured
-        if self.is_self_hosted_mode() {
+        if self.is_self_hosted_mode() || self.is_restore_drill() {
             return false;
         }
 
@@ -976,7 +1027,7 @@ impl AppConfig {
     /// Check if email provider should be enabled
     pub fn is_email_enabled(&self) -> bool {
         // Only allow email in cloud mode
-        self.is_cloud_mode()
+        self.is_cloud_mode() && !self.is_restore_drill()
     }
 
     /// Validate that all required environment variables are set for the current mode
@@ -1010,6 +1061,27 @@ impl AppConfig {
         // JWT Secret is required for authentication
         if std::env::var("JWT_SECRET").is_err() {
             missing.push("JWT_SECRET - Required for user authentication");
+        }
+
+        // Frontend URL is required for email links and browser trust boundaries.
+        if self.frontend_origin().is_none() {
+            missing
+                .push("FRONTEND_URL - Must be an HTTP(S) origin for email links and CORS security");
+        }
+
+        if self.is_restore_drill() {
+            return if missing.is_empty() {
+                Ok(())
+            } else {
+                Err(format!(
+                    "Restore drill requires the following environment variables:\n{}",
+                    missing
+                        .into_iter()
+                        .map(|var| format!("  - {}", var))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                ))
+            };
         }
 
         // Billing configuration is required in cloud mode.
@@ -1057,12 +1129,6 @@ impl AppConfig {
         }
         if std::env::var("RESEND_FROM_NAME").is_err() {
             missing.push("RESEND_FROM_NAME - Required for email sender name");
-        }
-
-        // Frontend URL is required for email links and browser trust boundaries.
-        if self.frontend_origin().is_none() {
-            missing
-                .push("FRONTEND_URL - Must be an HTTP(S) origin for email links and CORS security");
         }
 
         if missing.is_empty() {
@@ -1222,7 +1288,6 @@ impl AppConfig {
     }
 
     /// Set package-managed ntfy access token on a test config (builder pattern)
-    #[cfg(test)]
     pub fn with_managed_ntfy_access_token(mut self, token: &str) -> Self {
         self.managed_ntfy_access_token = Some(ManagedNtfyAccessToken(token.to_string()));
         self
@@ -1616,6 +1681,64 @@ mod tests {
         let self_hosted_config = test_config_self_hosted(NetworkConfig::Regtest);
         assert!(!self_hosted_config.is_cloud_mode());
         assert!(self_hosted_config.is_self_hosted_mode());
+    }
+
+    #[test]
+    fn restore_drill_skips_billing_and_notification_requirements() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_restore_drill = std::env::var("CANARY_RESTORE_DRILL").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_stripe_key = std::env::var("STRIPE_SECRET_KEY").ok();
+        let previous_stripe_webhook = std::env::var("STRIPE_WEBHOOK_SECRET").ok();
+        let previous_twilio_sid = std::env::var("TWILIO_ACCOUNT_SID").ok();
+        let previous_twilio_token = std::env::var("TWILIO_AUTH_TOKEN").ok();
+        let previous_twilio_sender = std::env::var("TWILIO_SENDER_ID").ok();
+        let previous_resend_key = std::env::var("RESEND_API_KEY").ok();
+
+        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::set_var("JWT_SECRET", "restore-drill-jwt");
+        std::env::set_var("STRIPE_SECRET_KEY", "sk_test_present_but_ignored");
+        std::env::set_var("STRIPE_WEBHOOK_SECRET", "whsec_present_but_ignored");
+        std::env::set_var("TWILIO_ACCOUNT_SID", "ACpresent");
+        std::env::set_var("TWILIO_AUTH_TOKEN", "present");
+        std::env::set_var("TWILIO_SENDER_ID", "Canary");
+        std::env::set_var("RESEND_API_KEY", "re_present");
+
+        let config = test_config(NetworkConfig::Mainnet);
+        assert!(config.is_restore_drill());
+        assert!(!config.is_stripe_enabled());
+        assert!(config.active_billing_provider().is_none());
+        assert!(!config.is_twilio_enabled());
+        assert!(!config.is_email_enabled());
+        assert!(!config.is_ntfy_enabled());
+        assert!(!config.is_btcpay_enabled());
+        assert!(config.validate_required_config().is_ok());
+
+        restore_env_var("CANARY_RESTORE_DRILL", previous_restore_drill);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("STRIPE_SECRET_KEY", previous_stripe_key);
+        restore_env_var("STRIPE_WEBHOOK_SECRET", previous_stripe_webhook);
+        restore_env_var("TWILIO_ACCOUNT_SID", previous_twilio_sid);
+        restore_env_var("TWILIO_AUTH_TOKEN", previous_twilio_token);
+        restore_env_var("TWILIO_SENDER_ID", previous_twilio_sender);
+        restore_env_var("RESEND_API_KEY", previous_resend_key);
+    }
+
+    #[test]
+    fn restore_drill_still_requires_jwt_and_frontend_origin() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_restore_drill = std::env::var("CANARY_RESTORE_DRILL").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+
+        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::remove_var("JWT_SECRET");
+
+        let config = test_config(NetworkConfig::Mainnet);
+        let error = config.validate_required_config().unwrap_err();
+        assert!(error.contains("JWT_SECRET"));
+
+        restore_env_var("CANARY_RESTORE_DRILL", previous_restore_drill);
+        restore_env_var("JWT_SECRET", previous_jwt);
     }
 
     #[test]

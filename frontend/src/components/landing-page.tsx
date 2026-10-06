@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { PrivatePromotion, PrivateLink } from '@/components/private-promotion'
 import Link from 'next/link'
 import {
   ArrowRight,
@@ -13,7 +14,9 @@ import {
   Globe2,
   Heart,
   KeyRound,
+  Mail,
   Menu,
+  MessageSquare,
   Radio,
   Server,
   Shield,
@@ -51,6 +54,12 @@ const features = [
   { key: 'languages', icon: Globe2 },
 ] as const
 
+const cloudFeatures = [
+  { key: 'email', icon: Mail },
+  { key: 'sms', icon: MessageSquare },
+  { key: 'noNode', icon: Cloud },
+] as const
+
 const privacyItems = [
   { key: 'walletData', icon: WalletCards },
   { key: 'spendingKeys', icon: KeyRound },
@@ -61,6 +70,7 @@ const faqKeys = ['operation', 'privateKeys', 'nodes', 'methods', 'privacy', 'clo
 
 export default function LandingPage() {
   const t = useTranslations('landing')
+  const tPrivate = useTranslations('privatePage')
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -70,16 +80,17 @@ export default function LandingPage() {
           <span className="text-lg font-bold tracking-wide">Canary Wallet</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm md:flex" aria-label={t('nav.label')}>
+        <nav className="hidden items-center gap-6 text-sm lg:flex" aria-label={t('nav.label')}>
           <Link href="#install" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.install')}</Link>
           <Link href="#how-it-works" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.howItWorks')}</Link>
           <Link href="#features" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.features')}</Link>
-          <Link href="/cloud" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.cloud')}</Link>
+          <Button variant="outline" size="sm" asChild><Link href="/cloud">{t('nav.cloud')}</Link></Button>
+          <PrivateLink />
           <a href={sourceOption.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-foreground">{sourceOption.name}</a>
           <Button variant="outline" size="sm" asChild><Link href="/sign-in">{t('nav.signIn')}</Link></Button>
         </nav>
 
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" aria-label={t('nav.openMenu')}><Menu /></Button>
@@ -88,6 +99,7 @@ export default function LandingPage() {
               <DropdownMenuItem asChild><Link href="#install">{t('nav.install')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="#how-it-works">{t('nav.howItWorks')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="#features">{t('nav.features')}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/private">{tPrivate('nav')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/cloud">{t('nav.cloud')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><a href={sourceOption.url} target="_blank" rel="noopener noreferrer">{sourceOption.name}<ExternalLink className="ml-auto" /></a></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/sign-in">{t('nav.signIn')}</Link></DropdownMenuItem>
@@ -107,11 +119,10 @@ export default function LandingPage() {
             <p className="mt-6 max-w-xl text-lg leading-8 text-muted-foreground">{t('hero.description')}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button size="lg" asChild><Link href="#install">{t('hero.install')}<ArrowRight /></Link></Button>
-              <Button size="lg" variant="secondary" asChild><Link href="/demo">{t('hero.demo')}</Link></Button>
+              <Button size="lg" asChild><Link href="/cloud"><Cloud />{t('hero.cloud')}</Link></Button>
             </div>
-            <Link href="/cloud" className="mt-5 inline-flex max-w-xl items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-              <Cloud className="h-4 w-4 shrink-0" />
-              {t('hero.cloudLink')}
+            <Link href="/demo" className="mt-5 inline-flex max-w-xl items-center gap-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+              {t('hero.demo')}
             </Link>
           </div>
 
@@ -140,6 +151,19 @@ export default function LandingPage() {
                   <ExternalLink className="h-4 w-4 text-muted-foreground" />
                 </a>
               ))}
+              <Link
+                href="/cloud"
+                className="flex items-center gap-4 rounded-lg border border-primary/30 bg-muted/40 p-4 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-background">
+                  <Cloud className="h-5 w-5 text-primary" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{t('install.cloud.name')}</span>
+                  <span className="block text-sm text-muted-foreground">{t('install.cloud.description')}</span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
               <a href={sourceOption.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 pt-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
                 <Code2 className="h-4 w-4" />{t('install.manual')}
               </a>
@@ -163,6 +187,29 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        <section className="container mx-auto px-4 py-16">
+          <Card className="mx-auto max-w-5xl border-primary/30 shadow-md">
+            <CardContent className="grid items-center gap-7 py-2 md:grid-cols-[1fr_auto]">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-primary"><Cloud className="h-4 w-4" />{t('cloud.eyebrow')}</div>
+                <h2 className="text-2xl font-semibold">{t('cloud.title')}</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{t('cloud.description')}</p>
+                <ul className="mt-4 flex flex-wrap gap-2">
+                  {cloudFeatures.map(({ key, icon: Icon }) => (
+                    <li key={key} className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-sm">
+                      <Icon className="h-4 w-4 text-primary" />
+                      {t(`cloud.features.${key}`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <Button size="lg" asChild><Link href="/cloud">{t('cloud.action')}<ArrowRight /></Link></Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        <PrivatePromotion />
 
         <section id="how-it-works" className="container mx-auto scroll-mt-6 px-4 py-20">
           <div className="mb-10 max-w-2xl">
@@ -214,15 +261,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="container mx-auto px-4 pb-20">
-          <Card className="mx-auto max-w-5xl border-primary/20 bg-muted/30">
-            <CardContent className="grid items-center gap-7 py-2 md:grid-cols-[1fr_auto]">
-              <div><div className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-primary"><Cloud className="h-4 w-4" />{t('cloud.eyebrow')}</div><h2 className="text-2xl font-semibold">{t('cloud.title')}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{t('cloud.description')}</p></div>
-              <Button variant="outline" asChild><Link href="/cloud">{t('cloud.action')}<ArrowRight /></Link></Button>
-            </CardContent>
-          </Card>
-        </section>
-
         <section id="faq" className="border-y bg-muted/30">
           <div className="container mx-auto px-4 py-20">
             <h2 className="text-center text-3xl font-semibold tracking-tight">{t('faq.title')}</h2>
@@ -243,7 +281,8 @@ export default function LandingPage() {
               <h2 className="text-3xl font-semibold">{t('final.title')}</h2>
               <p className="mx-auto mt-3 max-w-xl opacity-80">{t('final.description')}</p>
               <div className="mt-7 flex flex-wrap justify-center gap-3">
-                <Button size="lg" variant="secondary" asChild><Link href="#install">{t('final.install')}<ArrowRight /></Link></Button>
+                <Button size="lg" variant="secondary" asChild><Link href="/cloud">{t('final.cloud')}<ArrowRight /></Link></Button>
+                <Button size="lg" variant="outline" className="border-primary-foreground bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" asChild><Link href="#install">{t('final.install')}</Link></Button>
                 <Button size="lg" variant="outline" className="border-primary-foreground bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" asChild><Link href="/demo">{t('final.demo')}</Link></Button>
                 <Button size="lg" variant="outline" className="border-primary-foreground bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" asChild><Link href="/donations"><Heart />{t('final.donate')}</Link></Button>
               </div>
@@ -255,6 +294,7 @@ export default function LandingPage() {
       <footer className="border-t">
         <div className="container mx-auto flex flex-col gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>{t('footer.description')}</p>
+          <PrivateLink />
           <a href={sourceOption.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-foreground"><Code2 className="h-4 w-4" />{t('footer.source')}</a>
         </div>
       </footer>

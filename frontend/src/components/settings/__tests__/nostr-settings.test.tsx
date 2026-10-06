@@ -144,6 +144,19 @@ describe("NostrSettings", () => {
       rawError: "Nostr legacy DM publish failed: no relay accepted the message",
       translated: "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again.",
     },
+    {
+      errorCode: "nostr_auth_failed",
+      rawError: "Nostr publish failed: ws://haven.local/chat: authentication failed",
+      translated:
+        "A Nostr inbox relay rejected authentication. Check that the recipient's DM relay URL matches the relay's advertised address.",
+    },
+    {
+      errorCode: "nostr_onion_socks_required",
+      rawError:
+        "Recipient inbox relays are .onion; configure CANARY_NOSTR_SOCKS_PROXY (system Tor SOCKS, typically 127.0.0.1:9050)",
+      translated:
+        "This recipient's Nostr inbox uses .onion relays. Set CANARY_NOSTR_SOCKS_PROXY to a local Tor SOCKS port, typically 127.0.0.1:9050.",
+    },
   ])("shows translated $errorCode test send errors", async ({ errorCode, rawError, translated }) => {
     mockApi.sendTestNostrNotification.mockResolvedValue({
       success: false,

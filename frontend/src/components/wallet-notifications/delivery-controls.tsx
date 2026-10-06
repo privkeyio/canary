@@ -10,7 +10,9 @@ import {
   NostrProviderFields,
   NtfyProviderFields,
   SmsProviderFields,
+  TelegramProviderFields,
   WebhookProviderFields,
+  validateTelegramChatId,
   validateWebhookUrl,
 } from "@/components/contact-modal/index"
 import { Button } from "@/components/ui/button"
@@ -22,20 +24,31 @@ import { useNtfyServerTarget } from "@/hooks/useNtfyServerUrl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import type { MethodDraft, NotificationProvider } from "./types"
 import { generatePrivateNtfyTopic } from "./utils"
 
 export const PROVIDERS = [
   { value: "email", label: "Email", icon: Mail },
   { value: "sms", label: "SMS", icon: MessageCircle },
-  { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg" },
-  { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg" },
+  { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg", invertInDarkMode: true },
+  { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg", invertInDarkMode: true },
   { value: "webhook", label: "Webhook", icon: WebhookIcon },
+  { value: "telegram", label: "Telegram", icon: Send },
 ] as const
 
 export function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
   if ("imageSrc" in provider) {
-    return <Image src={provider.imageSrc} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 shrink-0" />
+    return (
+      <Image
+        src={provider.imageSrc}
+        alt=""
+        aria-hidden="true"
+        width={16}
+        height={16}
+        className={cn("h-4 w-4 shrink-0", provider.invertInDarkMode && "dark:invert")}
+      />
+    )
   }
   const Icon = provider.icon
   return <Icon className="h-4 w-4" aria-hidden="true" />
@@ -46,10 +59,14 @@ export function availableProviders(isSelfHostedMode: boolean, registeredProvider
     return PROVIDERS.filter((provider) =>
       provider.value === "ntfy" ||
       (provider.value === "nostr" && registeredProviderNames.includes("nostr")) ||
-      (provider.value === "webhook" && registeredProviderNames.includes("webhook"))
+      (provider.value === "webhook" && registeredProviderNames.includes("webhook")) ||
+      (provider.value === "telegram" && registeredProviderNames.includes("telegram"))
     )
   }
-  return PROVIDERS.filter((provider) => ["email", "sms", "ntfy"].includes(provider.value))
+  return PROVIDERS.filter((provider) =>
+    ["email", "sms", "ntfy"].includes(provider.value) ||
+    (provider.value === "telegram" && registeredProviderNames.includes("telegram"))
+  )
 }
 
 export function useDeliveryVerification({
@@ -58,24 +75,30 @@ export function useDeliveryVerification({
   originalSmsTarget,
   originalEmailTarget,
   onError,
+  initialSmsVerified = false,
+  initialEmailVerified = false,
 }: {
   walletChecksum: string
   contactName: string
   originalSmsTarget: string | null
   originalEmailTarget: string | null
   onError: (error: string | null) => void
+  initialSmsVerified?: boolean
+  initialEmailVerified?: boolean
 }) {
   const sms = useSmsVerification({
     walletChecksum,
     contactName,
     originalPhoneNumber: originalSmsTarget,
     onError,
+    initialVerified: initialSmsVerified,
   })
   const email = useEmailVerification({
     walletChecksum,
     contactName,
     originalEmailAddress: originalEmailTarget,
     onError,
+    initialVerified: initialEmailVerified,
   })
   return { sms, email }
 }
@@ -119,6 +142,7 @@ export function DeliveryTargetFields({
         disabled={disabled}
         ntfyServerUrl={ntfyServerTarget.url}
         ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+        managedDefaultTopic={ntfyServerTarget.defaultTopic}
         containerClassName="space-y-2"
       />
     )
@@ -137,6 +161,16 @@ export function DeliveryTargetFields({
       <WebhookProviderFields
         url={method.notification_target}
         onUrlChange={(notification_target) => onChange({ ...method, notification_target })}
+        disabled={disabled}
+        showTest={false}
+      />
+    )
+  }
+  if (method.provider_type === "telegram") {
+    return (
+      <TelegramProviderFields
+        chatId={method.notification_target}
+        onChatIdChange={(notification_target) => onChange({ ...method, notification_target })}
         disabled={disabled}
         showTest={false}
       />
@@ -319,9 +353,9 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
   const requestVersion = useRef(0)
   const destinationKey = `${method.provider_type}:${method.notification_target.trim()}`
   const latestDestinationKey = useRef(destinationKey)
-  latestDestinationKey.current = destinationKey
-  const testable = ["ntfy", "nostr", "webhook"].includes(method.provider_type)
+  const testable = ["ntfy", "nostr", "webhook", "telegram"].includes(method.provider_type)
   useEffect(() => {
+    latestDestinationKey.current = destinationKey
     requestVersion.current += 1
     if (successTimer.current) clearTimeout(successTimer.current)
     setTesting(false)
@@ -347,7 +381,9 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
         ? await api.sendTestNtfyNotification(notificationTarget)
         : providerType === "nostr"
           ? await api.sendTestNostrNotification(notificationTarget)
-          : await api.sendTestWebhookNotification(notificationTarget)
+          : providerType === "telegram"
+            ? await api.sendTestTelegramNotification(notificationTarget)
+            : await api.sendTestWebhookNotification(notificationTarget)
       if (requestId !== requestVersion.current || testedDestinationKey !== latestDestinationKey.current) return
       if (response.success) {
         setTestSucceeded(true)
@@ -366,7 +402,8 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
   }
 
   const valid = Boolean(method.notification_target.trim()) &&
-    (method.provider_type !== "webhook" || validateWebhookUrl(method.notification_target))
+    (method.provider_type !== "webhook" || validateWebhookUrl(method.notification_target)) &&
+    (method.provider_type !== "telegram" || validateTelegramChatId(method.notification_target))
 
   return (
     <div className="space-y-2">
@@ -381,6 +418,7 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
         </span>
       </Button>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <p className="text-xs text-muted-foreground">{t("delivery.connectivityHint")}</p>
     </div>
   )
 }

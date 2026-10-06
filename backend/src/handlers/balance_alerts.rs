@@ -3,7 +3,9 @@
 use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
+use crate::handlers::helpers::{
+    verify_wallet_access, verify_wallet_read_access, DatabaseErrorMessage,
+};
 use crate::metadata::{BalanceAlertType, CreateBalanceAlertInput};
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
 use axum::{
@@ -25,7 +27,7 @@ pub async fn get_wallet_balance_alerts(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // Check if wallet exists and user has access
-    let _wallet = match verify_wallet_access(
+    let _wallet = match verify_wallet_read_access(
         &app_services,
         &user,
         &checksum,
@@ -498,28 +500,26 @@ pub async fn delete_balance_alert(
         }
     };
 
-    // Verify user owns the wallet containing this alert (unless admin)
-    if !user.is_admin {
-        match app_services
-            .metadata_db
-            .is_wallet_owned_by_user(&alert.wallet_checksum, &user.user_id)
-            .await
-        {
-            Ok(true) => {} // User owns the wallet, proceed
-            Ok(false) => {
-                return (
-                    StatusCode::FORBIDDEN,
-                    Json(ErrorResponse::coded("access_denied", "Access denied")),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Database error: {}", e))),
-                )
-                    .into_response();
-            }
+    // Administrative roles do not bypass wallet ownership.
+    match app_services
+        .metadata_db
+        .is_wallet_owned_by_user(&alert.wallet_checksum, &user.user_id)
+        .await
+    {
+        Ok(true) => {} // User owns the wallet, proceed
+        Ok(false) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(ErrorResponse::coded("access_denied", "Access denied")),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
+            )
+                .into_response();
         }
     }
 

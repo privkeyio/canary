@@ -2,6 +2,7 @@
   "common": {
     "loading": "Cargando...",
     "save": "Guardar",
+    "saved": "Guardado",
     "copy": "Copiar",
     "saving": "Guardando...",
     "cancel": "Cancelar",
@@ -94,14 +95,14 @@
     "hero": {
       "eyebrow": "Monitoreo privado de Bitcoin",
       "title": "Entérate cuando tus bitcoins se muevan.",
-      "description": "Canary se ejecuta en tu nodo de Bitcoin y te alerta por los canales que elijas. Monitorea la actividad de la billetera sin necesitar nunca tus claves privadas.",
+      "description": "Canary te alerta cuando tus bitcoins se mueven, sin necesitar nunca tus claves privadas. El autoalojamiento es el camino de Bitcoin. Usa Canary Cloud si no tienes un nodo, o no quieres operarlo tú.",
       "install": "Instalar Canary",
-      "demo": "Probar la demo",
-      "cloudLink": "¿No ejecutas un nodo? Explora Canary Cloud y sus implicaciones de privacidad."
+      "cloud": "Usar Canary Cloud",
+      "demo": "Probar la demo"
     },
     "install": {
       "title": "Instala en tu nodo",
-      "description": "Canary es gratuito para autoalojar. Elige tu plataforma de nodo o usa el código fuente para una instalación manual.",
+      "description": "Canary es gratuito para autoalojar. Elige tu plataforma de nodo, usa Canary Cloud o instálalo desde el código fuente.",
       "options": {
         "umbrel": {
           "description": "Instala desde Umbrel App Store"
@@ -112,6 +113,10 @@
         "mynode": {
           "description": "Disponible en myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "¿Sin nodo? Recibe alertas por email y SMS"
       },
       "manual": "Ver el código fuente y la información de instalación manual en GitHub"
     },
@@ -132,8 +137,8 @@
           "description": "Usa ntfy, Nostr o webhooks según tu configuración y necesidades de privacidad."
         },
         "cloud": {
-          "title": "La nube es opcional",
-          "description": "Existe una suscripción alojada para quienes no ejecutan un nodo, con implicaciones de privacidad distintas."
+          "title": "No se necesita un nodo",
+          "description": "Canary Cloud es para quienes no ejecutan un nodo, o no quieren operar Canary ellos mismos."
         }
       }
     },
@@ -144,11 +149,11 @@
       "steps": {
         "install": {
           "title": "Instala Canary",
-          "description": "Agrega Canary desde la tienda de tu plataforma de nodo o sigue la instalación manual con código disponible."
+          "description": "Agrega Canary desde la tienda de tu plataforma de nodo o sigue la instalación manual con código disponible. Usa Canary Cloud si no lo instalas en un nodo."
         },
         "wallet": {
           "title": "Agrega datos de billetera de solo lectura",
-          "description": "Proporciona un descriptor, XPUB o una dirección de Bitcoin. Nunca ingreses una frase semilla ni una clave privada."
+          "description": "Proporciona un descriptor, XPUB o una dirección de Bitcoin. Se admiten billeteras de una sola firma y multifirma. Nunca ingreses una frase semilla ni una clave privada."
         },
         "notifications": {
           "title": "Elige las notificaciones",
@@ -158,7 +163,7 @@
     },
     "features": {
       "title": "Monitoreo enfocado para los bitcoins que guardas",
-      "description": "Alertas útiles sin darle a Canary el poder de mover fondos.",
+      "description": "Alertas útiles para billeteras de una sola firma y multifirma, sin darle a Canary el poder de mover fondos.",
       "items": {
         "activity": {
           "title": "Actividad de transacciones",
@@ -198,10 +203,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Alternativa alojada",
-      "title": "Canary Cloud si no ejecutas un nodo",
-      "description": "Usa la suscripción alojada después de revisar cómo los datos de la billetera pueden vincularse con tu cuenta Canary y tu identidad de facturación.",
-      "action": "Explorar Canary Cloud"
+      "eyebrow": "Opción alojada",
+      "title": "¿No tienes un nodo, o prefieres no ejecutar Canary tú?",
+      "description": "Canary Cloud ejecuta el mismo monitoreo de solo lectura por ti, con alertas por email y SMS que no están disponibles si autoalojas.",
+      "action": "Usar Canary Cloud",
+      "features": {
+        "email": "Alertas por email",
+        "sms": "Alertas por SMS",
+        "noNode": "Sin nodo que operar"
+      }
     },
     "faq": {
       "title": "Preguntas frecuentes",
@@ -212,7 +222,7 @@
         },
         "privateKeys": {
           "question": "¿Canary necesita mis claves privadas?",
-          "answer": "No. Canary usa descriptores, XPUB o direcciones para monitoreo de solo lectura. No puede firmar transacciones ni gastar fondos."
+          "answer": "No. Canary usa descriptores, XPUB o direcciones para monitoreo de solo lectura de billeteras de una sola firma y multifirma. No puede firmar transacciones ni gastar fondos."
         },
         "nodes": {
           "question": "¿Qué plataformas de nodo son compatibles?",
@@ -220,7 +230,7 @@
         },
         "methods": {
           "question": "¿Cómo puede notificarme Canary?",
-          "answer": "Canary autoalojado admite ntfy, Nostr y webhooks. La disponibilidad puede depender de la configuración del despliegue."
+          "answer": "Canary autoalojado admite ntfy, Nostr y webhooks. Canary Cloud añade email y SMS, que no están disponibles al autoalojar, y también admite ntfy."
         },
         "privacy": {
           "question": "¿Las notificaciones son completamente privadas?",
@@ -228,14 +238,15 @@
         },
         "cloud": {
           "question": "¿En qué se diferencia Canary Cloud?",
-          "answer": "Cloud es un servicio alojado de pago. Almacena los datos de billetera de solo lectura que proporcionas y puede vincularlos con tu cuenta e identidad de facturación, pero nunca recibe claves privadas ni puede gastar fondos."
+          "answer": "Cloud es un servicio alojado de pago para quienes no tienen un nodo o no quieren ejecutar Canary ellos mismos. Incluye alertas por email y SMS, almacena los datos de billetera de solo lectura que proporcionas y puede vincularlos con tu cuenta e identidad de facturación, pero nunca recibe claves privadas ni puede gastar fondos."
         }
       }
     },
     "final": {
       "title": "Pon un canario sobre tus bitcoins.",
-      "description": "Instala en tu nodo, explora la demo alojada o apoya el desarrollo continuo.",
+      "description": "Autoalójalo en tu nodo, o usa Canary Cloud si no quieres ejecutarlo tú.",
       "install": "Instalar Canary",
+      "cloud": "Usar Canary Cloud",
       "demo": "Probar la demo",
       "donate": "Donar"
     },
@@ -254,7 +265,8 @@
       "noAccount": "¿No tienes cuenta? Regístrate",
       "forgotPassword": "¿Olvidaste tu contraseña?",
       "devMode": "Modo Desarrollo",
-      "loginFailed": "Error al iniciar sesión"
+      "loginFailed": "Error al iniciar sesión",
+      "authenticatorCode": "Código de autenticación"
     },
     "signUp": {
       "title": "Comienza tu prueba gratuita de 30 días",
@@ -373,7 +385,7 @@
       },
       "test": {
         "title": "Notificación de prueba",
-        "description": "Envía una notificación de prueba para verificar que tu configuración de ntfy funciona.",
+        "description": "Envía una prueba de conectividad para comprobar que este destino ntfy es accesible.",
         "topicLabel": "Tema",
         "topicPlaceholder": "tema-prueba",
         "send": "Enviar prueba",
@@ -455,7 +467,7 @@
     },
     "nostr": {
       "title": "Nostr DMs",
-      "description": "Envía mensajes directos cifrados de Nostr desde esta instancia autohospedada de Canary",
+      "description": "Envía mensajes directos cifrados de Nostr desde esta instancia autohospedada de Canary. Para llegar a relays de bandeja .onion, ejecuta Tor del sistema y define CANARY_NOSTR_SOCKS_PROXY (normalmente 127.0.0.1:9050).",
       "senderLabel": "npub remitente de Canary",
       "loading": "Cargando clave del remitente...",
       "loadFailed": "No se pudieron cargar los ajustes de Nostr",
@@ -481,11 +493,32 @@
         "recipientLabel": "Destinatario de prueba",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "El destinatario de Nostr es obligatorio",
+        "description": "Envía una prueba de conectividad para comprobar que este destinatario de Nostr puede recibir un DM.",
         "send": "Enviar prueba",
         "sending": "Enviando...",
         "success": "DM de prueba de Nostr enviado correctamente.",
         "successWithMode": "DM de prueba de Nostr enviado correctamente con {mode}.",
         "error": "No se pudo enviar el DM de prueba de Nostr"
+      }
+    },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Envía alertas a través de un bot de Telegram en esta instancia autohospedada de Canary",
+      "help": "Crea un bot con @BotFather, pega el token aquí y luego envía un mensaje al bot. Agrega un destino con un ID de chat numérico o un @nombredeusuario público.",
+      "tokenLabel": "Token del bot",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Quitar token guardado",
+      "loadFailed": "No se pudieron cargar los ajustes de Telegram",
+      "saveFailed": "No se pudieron guardar los ajustes de Telegram",
+      "test": {
+        "chatIdLabel": "ID de chat de prueba",
+        "chatIdPlaceholder": "123456789 o @nombredeusuario",
+        "description": "Envía una prueba de conectividad después de guardar un token de bot.",
+        "send": "Enviar prueba",
+        "sending": "Enviando...",
+        "success": "Mensaje de prueba de Telegram enviado correctamente.",
+        "error": "No se pudo enviar el mensaje de prueba de Telegram: {detail}",
+        "unknownError": "Error desconocido"
       }
     },
     "notifications": {
@@ -561,7 +594,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automáticamente el tipo de script.",
+      "descriptorHint": "Se admiten descriptores de una sola firma y multifirma. Detectaremos el tipo de script automáticamente.",
       "advancedSettings": "Configuración Avanzada",
       "scriptType": {
         "label": "Tipo de Script",
@@ -604,16 +637,16 @@
         "scriptTypeRequired": "El tipo de script es requerido para billeteras XPUB nuevas"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
+        "keysStaySafe": "Canary Wallet solo necesita tu descriptor de salida, XPUB o dirección para monitorear billeteras de una sola firma y multifirma. Tus claves privadas permanecen seguras en tu billetera.",
         "trySampleWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary Wallet.",
         "sampleWallets": {
           "bacon": "Usar Billetera Bacon",
           "satoshi-genesis": "Usar Dirección Satoshi Genesis"
         },
-        "guidesPrompt": "¿No estás seguro de cómo obtener descriptores de salida o XPUBs? Sigue nuestras guías a continuación:",
+        "guidesPrompt": "¿No estás seguro de cómo obtener descriptores de salida o XPUBs? Se admiten billeteras de una sola firma y multifirma. Sigue nuestras guías a continuación:",
         "exportSteps": "Sigue estos pasos para exportar tu descriptor desde {walletName}",
         "pasteXpub": "Pega tu XPUB abajo.",
-        "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo.",
+        "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo. Las billeteras multifirma usan un descriptor.",
         "samplePrefilled": "Hemos rellenado la billetera de muestra {name} para ti. Solo haz clic en Agregar Billetera para continuar.",
         "enterDetails": "Ingresar Detalles",
         "walletType": {
@@ -623,12 +656,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Billetera de escritorio para Bitcoin con soporte completo de descriptores",
+          "description": "Billetera de escritorio para Bitcoin con soporte completo de descriptores, incluida la multifirma",
           "steps": [
             "Abre tu billetera en Sparrow",
             "Ve a la pestaña Settings",
             "Haz clic en \"Show\" junto a Output Descriptor",
-            "Copia toda la cadena del descriptor (empieza con wpkh, wsh, o tr)"
+            "Copia toda la cadena del descriptor (empieza con wpkh, wsh, o tr). Las billeteras multifirma suelen empezar con wsh."
           ]
         },
         "bluewallet": {
@@ -698,6 +731,10 @@
       "contacts": "Contactos",
       "balanceAlerts": "Alertas de Saldo",
       "walletDetails": "Detalles de la Cartera",
+      "labels": "Etiquetas",
+      "labelsHint": "Exporta o importa un archivo de etiquetas BIP-329 para que otras carteras puedan conservar los mismos nombres.",
+      "exportLabels": "Exportar etiquetas",
+      "importLabels": "Importar etiquetas",
       "descriptorLabel": "Output Descriptor",
       "addressLabel": "Dirección",
       "scriptType": "Tipo de Script",
@@ -777,15 +814,18 @@
       "namePlaceholder": "Nombre del contacto",
       "methodTitle": "Métodos de notificación",
       "providers": {
-        "ntfy": "Notificaciones ntfy.sh",
+        "ntfy": "Notificaciones ntfy",
         "twilio": "Notificaciones SMS",
         "email": "Notificaciones por correo",
         "nostr": "Nostr DM",
-        "webhook": "Webhook JSON"
+        "webhook": "Webhook JSON",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "Tema de ntfy",
-        "topicHint": "Suscríbete a este tema en {server} para recibir notificaciones",
+        "topicHint": "Escribe solo el nombre del tema, no una URL. Las notificaciones van a {server}. Cambia el servidor en Configuración.",
+        "topicPrivacyGenerated": "Puede cambiar este tema. Generamos un nombre difícil de adivinar para que sus notificaciones sigan siendo privadas. Si elige el suyo, hágalo también difícil de adivinar.",
+        "topicPrivacyCustom": "Puede cambiar este tema. Elija un nombre difícil de adivinar para que sus notificaciones sigan siendo privadas.",
         "localServer": "ntfy local"
       },
       "sms": {
@@ -800,10 +840,10 @@
       "webhook": {
         "urlLabel": "URL del webhook",
         "urlPlaceholder": "http://receptor.local:8080/canary?token=secreto",
-        "urlHint": "Canary envía JSON a esta URL. Las rutas y consultas pueden contener secretos y se almacenan completas.",
+        "urlHint": "Canary envía JSON a esta URL. Para push de ntfy, elige ntfy e ingresa un nombre de tema. Las rutas y consultas pueden contener secretos y se almacenan completas.",
         "test": "Probar",
         "testing": "Probando...",
-        "testSuccess": "Webhook de prueba entregado correctamente.",
+        "testSuccess": "Se entregó el webhook de prueba. Esto comprueba que la URL es accesible.",
         "testError": "La prueba falló: {detail}",
         "unknownError": "Error desconocido",
         "invalidUrl": "Ingresa una URL HTTP o HTTPS absoluta sin información de usuario ni fragmento."
@@ -812,6 +852,17 @@
         "recipientLabel": "Destinatario de Nostr",
         "recipientPlaceholder": "npub1... o clave pública en hex",
         "recipientHint": "Ingresa la npub del contacto o una clave pública de 64 caracteres. La entrega NIP-17 requiere que el contacto tenga una lista de relays de bandeja de entrada DM kind 10050. Nunca ingreses una clave privada nsec."
+      },
+      "telegram": {
+        "chatIdLabel": "ID de chat de Telegram",
+        "chatIdPlaceholder": "123456789 o @usuario",
+        "chatIdHint": "Usa el ID numérico del chat (incluidos los ID de grupo negativos) o un @usuario público. Envía un mensaje al bot primero para que pueda entregar en un chat privado.",
+        "test": "Probar",
+        "testing": "Probando...",
+        "testSuccess": "Mensaje de prueba de Telegram entregado. Esto comprueba que el bot puede llegar a este chat.",
+        "testError": "La prueba falló: {detail}",
+        "unknownError": "Error desconocido",
+        "invalidChatId": "Ingresa un ID numérico de chat de Telegram o un @usuario que empiece con una letra (5–32 caracteres)."
       }
     },
     "edit": {
@@ -854,7 +905,8 @@
       "phoneRequired": "El número de teléfono es obligatorio",
       "emailRequired": "La dirección de email es obligatoria",
       "nostrRecipientRequired": "El destinatario de Nostr es obligatorio",
-      "webhookUrlRequired": "La URL del webhook es obligatoria"
+      "webhookUrlRequired": "La URL del webhook es obligatoria",
+      "telegramChatIdRequired": "El ID de chat de Telegram es obligatorio"
     },
     "wizard": {
       "nameStep": "Nombre del contacto",
@@ -984,7 +1036,12 @@
     "walletLabel": "Billetera: {name}",
     "loadOlder": "Cargar anteriores",
     "expandDetails": "Expandir detalles de la transacción",
-    "collapseDetails": "Ocultar detalles de la transacción"
+    "collapseDetails": "Ocultar detalles de la transacción",
+    "label": "Etiqueta",
+    "labelPlaceholder": "Agregar una etiqueta",
+    "exportLabels": "Exportar etiquetas",
+    "importLabels": "Importar etiquetas",
+    "labelActionFailed": "No se pudieron actualizar las etiquetas de transacción. Inténtalo de nuevo."
   },
   "billing": {
     "title": "Suscripción",
@@ -1236,12 +1293,29 @@
       "nostr_send_timeout": "Se agotó el tiempo para enviar el DM de Nostr. Revisa la configuración de relays del destinatario e inténtalo de nuevo.",
       "nostr_no_dm_relays": "El destinatario no ha activado los DMs modernos NIP-17 de Nostr. Prueba Auto o NIP-04 heredado.",
       "nostr_send_failed": "No se pudo enviar el DM de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
-      "nostr_nip04_failed": "No se pudo enviar el DM heredado NIP-04 de Nostr. Revisa la conexión al relay e inténtalo de nuevo."
+      "nostr_auth_failed": "Un relay de bandeja de entrada de Nostr rechazó la autenticación. Comprueba que la URL del relay DM del destinatario coincida con la dirección anunciada por el relay.",
+      "nostr_nip04_failed": "No se pudo enviar el DM heredado NIP-04 de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
+      "nostr_onion_socks_required": "La bandeja de entrada Nostr del destinatario usa relays .onion. Configure CANARY_NOSTR_SOCKS_PROXY con un puerto SOCKS de Tor local, normalmente 127.0.0.1:9050.",
+      "admin_mfa_required": "Ingresa el código de tu aplicación de autenticación para iniciar sesión.",
+      "admin_mfa_invalid": "No se pudo verificar el código. Prueba uno nuevo o contacta al operador.",
+      "admin_mfa_rate_limited": "Demasiados intentos. Vuelve a intentarlo en cinco minutos.",
+      "admin_reauthentication_required": "Inicia sesión de nuevo con tu contraseña y código de autenticación.",
+      "admin_wallets_unsupported": "Los administradores de la nube no pueden agregar billeteras. Usa el acceso de soporte para ver una cuenta de cliente.",
+      "support_target_not_found": "Ningún cliente coincide con ese correo.",
+      "support_target_invalid": "El acceso de soporte es solo para cuentas de clientes.",
+      "support_reason_required": "Describe por qué necesitas este acceso.",
+      "support_reason_too_long": "El motivo debe tener 280 caracteres como máximo.",
+      "support_access_rate_limited": "Demasiadas consultas. Inténtalo de nuevo en unos minutos.",
+      "invalid_telegram_chat_id": "ID de chat de Telegram no válido. Ingresa un ID numérico o un @usuario.",
+      "telegram_not_configured": "Las notificaciones de Telegram no están configuradas en este servidor.",
+      "telegram_test_self_hosted_only": "Los mensajes de prueba de Telegram solo están disponibles en modo autohospedado.",
+      "telegram_self_hosted_only": "Las notificaciones de Telegram solo están disponibles en modo autohospedado."
     }
   },
   "footer": {
     "logoAlt": "Logo de Canary Wallet",
     "appName": "Canary Wallet",
+    "version": "Versión {version}",
     "blockInfo": "Bloque {height}",
     "donations": "Donaciones"
   },
@@ -1351,7 +1425,8 @@
       "sendTest": "Enviar prueba",
       "testing": "Enviando prueba…",
       "testSent": "Prueba enviada",
-      "testFailed": "No se pudo enviar la notificación de prueba."
+      "testFailed": "No se pudo enviar la notificación de prueba.",
+      "connectivityHint": "Esto comprueba que el destino es accesible. Guarda el destino para confirmar la configuración de notificaciones."
     },
     "privacy": {
       "label": "Privacidad del contenido",
@@ -1515,8 +1590,16 @@
       "errors": {
         "invalidBtc": "Ingrese una cantidad BTC válida",
         "invalidFiat": "Ingrese una cantidad fiduciaria válida",
-        "validationFailed": "No se pudo validar la alerta de saldo"
-      }
+        "validationFailed": "No se pudo validar la alerta de saldo",
+        "invalidSats": "Introduzca un número entero de satoshis",
+        "balanceUnavailable": "El saldo actual no está disponible",
+        "fiatUnavailable": "No hay un valor fiduciario para el saldo actual"
+      },
+      "useCurrent": "Usar saldo actual",
+      "currentLabel": "Saldo actual",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Las alertas usan este total, incluidos los fondos no confirmados.",
+      "currentUnavailable": "El saldo actual no está disponible. Espere a que la cartera se sincronice e inténtelo de nuevo."
     },
     "thresholdTypes": {
       "above": "Por encima de",
@@ -1549,7 +1632,7 @@
         "delivery": {
           "short": "Entrega",
           "title": "¿Adónde deberían ir las alertas?",
-          "description": "Nombra este destino y elige un método de entrega. La verificación permanece aquí para que sepas que el destino funciona antes de continuar."
+          "description": "Ponle un nombre a este destino y elige un método de entrega. Envía aquí una prueba de conectividad para saber que el destino es accesible antes de continuar."
         },
         "alerts": {
           "short": "Tiempo de alerta",
@@ -1584,6 +1667,7 @@
       "inactive": "Inactivo",
       "disabled": "Apagado",
       "deliveryNotice": "Los destinos están ocultos aquí. Edita para ver el destino completo.",
+      "testHint": "El mensaje de prueba enumera la configuración de notificaciones guardada para este destino.",
       "delivery": "Entrega",
       "transactionAlerts": "Alertas de transacciones",
       "messageContent": "Contenido del mensaje",
@@ -1625,30 +1709,14 @@
     "hero": {
       "eyebrow": "Monitoreo alojado de Bitcoin",
       "title": "Canary Cloud",
-      "description": "Canary Cloud opera el servicio de monitoreo por ti. Revisa las implicaciones de privacidad y luego elige el plan alojado que se ajuste a tus necesidades.",
-      "selfHost": "¿Prefieres autoalojar? Instala Canary en tu nodo"
-    },
-    "privacy": {
-      "eyebrow": "Divulgación de privacidad",
-      "title": "Lo que Canary Cloud puede conocer",
-      "description": "Un monitor alojado necesita datos de billetera de solo lectura. Comprende qué se almacena y cómo puede vincularse antes de registrarte.",
-      "items": {
-        "walletData": {
-          "title": "Se almacena información de billetera de solo lectura",
-          "description": "Canary Cloud almacena los descriptores, XPUB o direcciones que proporcionas."
-        },
-        "visibility": {
-          "title": "La actividad de la billetera puede revelarse",
-          "description": "Esa información puede revelar direcciones, saldos e historial de transacciones de la billetera."
-        },
-        "identity": {
-          "title": "La billetera y la identidad de facturación pueden vincularse",
-          "description": "Tu cuenta y suscripción de Canary pueden conectar la información de la billetera con tu identidad de cuenta y facturación."
-        },
-        "privateKeys": {
-          "title": "Nunca se reciben claves privadas",
-          "description": "Canary Cloud nunca recibe claves privadas y no puede firmar transacciones ni gastar tus fondos."
-        }
+      "description": "Canary Cloud ejecuta el servicio de monitoreo por ti si no tienes un nodo, o no quieres ejecutar Canary tú. Recibe alertas por email y SMS, además de push con ntfy. Nunca necesita tus claves privadas.",
+      "signUp": "Empezar prueba gratis",
+      "demo": "Probar la demo",
+      "selfHost": "¿Prefieres autoalojar? Instala Canary en tu nodo",
+      "features": {
+        "email": "Notificaciones por email",
+        "sms": "Notificaciones por SMS",
+        "noNode": "Sin nodo que operar"
       }
     },
     "pricing": {
@@ -1665,6 +1733,112 @@
     },
     "footer": {
       "selfHost": "Autoalojar Canary en su lugar"
+    },
+    "faq": {
+      "title": "Preguntas de privacidad",
+      "description": "El monitoreo alojado necesita datos de billetera de solo lectura para hacer su trabajo. Estos son los detalles importantes.",
+      "items": {
+        "walletData": {
+          "question": "¿Qué datos de billetera almacena Canary Cloud?",
+          "answer": "Canary Cloud almacena los descriptores, XPUB o direcciones que proporcionas, incluidas las billeteras de una sola firma y multifirma."
+        },
+        "visibility": {
+          "question": "¿Puede Canary Cloud ver la actividad de la billetera?",
+          "answer": "Sí. Esa información de solo lectura puede revelar direcciones, saldos e historial de transacciones."
+        },
+        "identity": {
+          "question": "¿Los datos de la billetera están vinculados a mi cuenta?",
+          "answer": "Tu cuenta Canary y tu suscripción pueden conectar la información de la billetera con tu cuenta e identidad de facturación."
+        },
+        "privateKeys": {
+          "question": "¿Canary Cloud obtiene mis claves privadas?",
+          "answer": "No. Canary Cloud nunca recibe claves privadas y no puede firmar transacciones ni gastar tus fondos."
+        }
+      }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Tu propio nodo Bitcoin. Alojado para ti.",
+    "description": "Una instancia dedicada de Canary y un nodo completo de Bitcoin en tu propia cuenta de alojamiento, con acompañamiento personal para comenzar y soporte continuo de mantenimiento y actualizaciones.",
+    "price": "Desde {price}/mes",
+    "terms": "Alojamiento incluido. La configuración inicial se cotiza por separado. Impuestos aplicables adicionales.",
+    "availability": "Disponible por acuerdo previo. Acordamos la configuración, los controles de acceso y el mantenimiento antes de la activación.",
+    "contact": "Contáctanos",
+    "learnMore": "Explorar Canary Private",
+    "audience": "Para personas con fondos importantes en almacenamiento en frío, responsables del patrimonio familiar y pequeñas tesorerías en Bitcoin.",
+    "benefitsTitle": "Una configuración adaptada a ti",
+    "benefits": {
+      "monitoring": {
+        "title": "Monitoreo dedicado",
+        "description": "La configuración propuesta ejecuta Canary y su backend de Bitcoin juntos, sin consultar el servicio Electrum compartido de Canary."
+      },
+      "control": {
+        "title": "Control del cliente",
+        "description": "La cuenta de alojamiento es tuya. Acordamos el acceso y las actualizaciones antes de la configuración."
+      },
+      "service": {
+        "title": "Servicio personal",
+        "description": "Acompañamiento personal para comenzar y soporte continuo, con el alcance confirmado en tu cotización."
+      },
+      "watchOnly": {
+        "title": "Operación de solo observación",
+        "description": "Canary monitorea tus billeteras sin necesitar frases semilla ni claves privadas."
+      }
+    },
+    "stepsTitle": "Cómo funciona",
+    "steps": {
+      "needs": {
+        "title": "Cuéntanos qué necesitas",
+        "description": "Describe tus necesidades de monitoreo y el tipo de ayuda que buscas."
+      },
+      "quote": {
+        "title": "Acordamos la configuración y la cotización",
+        "description": "Juntos confirmamos el alojamiento, los controles de acceso, el mantenimiento y el precio."
+      },
+      "setup": {
+        "title": "Configuramos tu instancia",
+        "description": "Una vez acordadas las condiciones, te ayudamos a poner en marcha tu instancia dedicada."
+      }
+    },
+    "faqTitle": "Preguntas frecuentes",
+    "faq": {
+      "cloud": {
+        "question": "¿En qué se diferencia Canary Private de Cloud?",
+        "answer": "Cloud ofrece monitoreo administrado en infraestructura compartida. Canary Private es una instancia dedicada de Canary y un nodo completo de Bitcoin en tu propia cuenta de alojamiento, con acompañamiento personal y soporte acordados de antemano."
+      },
+      "privacy": {
+        "question": "¿Quién es dueño de la cuenta de alojamiento y qué significa para la privacidad?",
+        "answer": "Tú eres dueño de la cuenta de alojamiento. La configuración propuesta utiliza su propio backend de Bitcoin en lugar del servicio Electrum compartido de Canary. Los proveedores de alojamiento y notificaciones siguen siendo parte del modelo de confianza, y ser dueño de la cuenta no elimina el acceso del operador acordado para la configuración y el mantenimiento."
+      },
+      "maintenance": {
+        "question": "¿Cómo se manejan el mantenimiento y las actualizaciones?",
+        "answer": "Acordamos los controles de acceso, las responsabilidades de mantenimiento, las actualizaciones y el alcance del soporte continuo antes de la activación. Tu cotización confirma lo que se incluye."
+      },
+      "pricing": {
+        "question": "¿Cuánto cuesta y cuándo está disponible?",
+        "answer": "Canary Private está disponible por acuerdo previo desde {price}/mes, con alojamiento incluido. La tarifa única de configuración se cotiza por separado y los impuestos aplicables son adicionales. Confirmamos el alcance, el precio final y la disponibilidad antes de la activación."
+      }
+    },
+    "form": {
+      "title": "Consultar sobre Canary Private",
+      "description": "Cuéntanos brevemente tus necesidades de monitoreo. No incluyas detalles de billeteras, saldos, frases semilla ni claves privadas.",
+      "placeholder": "Describe brevemente tus necesidades de monitoreo y el soporte que buscas.",
+      "success": "Gracias por tu consulta. Recibimos tu mensaje y nos pondremos en contacto contigo."
+    }
+  },
+  "supportPage": {
+    "title": "Acceso de soporte",
+    "description": "Consulta un cliente a la vez. El acceso caduca en 15 minutos y queda registrado.",
+    "emailLabel": "Correo del cliente",
+    "reasonLabel": "Motivo",
+    "reasonPlaceholder": "Por qué necesitas ver esta cuenta",
+    "submit": "Abrir cuenta",
+    "endAccess": "Finalizar acceso",
+    "activeTitle": "Viendo {email}",
+    "expires": "El acceso termina a las {time}",
+    "empty": "Este cliente no tiene billeteras.",
+    "readOnly": "Solo lectura"
   }
 }

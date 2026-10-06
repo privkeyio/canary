@@ -19,19 +19,21 @@ export default function SignInPage() {
   const t = useTranslations('auth.signIn')
   const tCommon = useTranslations('common')
   const tErrors = useTranslations('errors.api')
-  const { login, isAuthenticated, isSelfHostedMode } = useAuth()
+  const { login, isAuthenticated, isSelfHostedMode, isCloudMode, user } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [needsMfa, setNeedsMfa] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
 
-  // Redirect authenticated users to wallets
+  // Redirect authenticated users away from sign-in
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/wallets')
+      router.push(isCloudMode && user?.is_admin ? '/support' : '/wallets')
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isCloudMode, router, user?.is_admin])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,13 +41,26 @@ export default function SignInPage() {
     setIsLoading(true)
 
     try {
-      await login(isSelfHostedMode ? SELF_HOSTED_ADMIN_EMAIL : email, password)
+      const loginEmail = isSelfHostedMode ? SELF_HOSTED_ADMIN_EMAIL : email
+      if (needsMfa && !isSelfHostedMode) {
+        await login(loginEmail, password, mfaCode)
+      } else {
+        await login(loginEmail, password)
+      }
       // Navigation is handled by the login function in auth context
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.errorCode === 'admin_mfa_required' || err.errorCode === 'admin_mfa_invalid') {
+          setNeedsMfa(true)
+          setMfaCode('')
+        }
         setError(getTranslatedApiError(err, tErrors))
       } else {
         setError(err instanceof Error ? err.message : t('loginFailed'))
+      }
+      if (!(err instanceof ApiError && (err.errorCode === 'admin_mfa_required' || err.errorCode === 'admin_mfa_invalid'))) {
+        setNeedsMfa(false)
+        setMfaCode('')
       }
     } finally {
       setIsLoading(false)
@@ -57,10 +72,16 @@ export default function SignInPage() {
     setIsLoading(true)
 
     try {
+      setEmail(devEmail)
+      setPassword('password123')
       await login(devEmail, 'password123')
       // Navigation is handled by the login function in auth context
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.errorCode === 'admin_mfa_required' || err.errorCode === 'admin_mfa_invalid') {
+          setNeedsMfa(true)
+          setMfaCode('')
+        }
         setError(getTranslatedApiError(err, tErrors))
       } else {
         setError(err instanceof Error ? err.message : 'Failed to login')
@@ -173,6 +194,15 @@ export default function SignInPage() {
                 disabled={isLoading}
               />
             </div>
+            {needsMfa && !isSelfHostedMode && (
+              <div className="space-y-2">
+                <Label htmlFor="mfa-code">{t('authenticatorCode')}</Label>
+                <Input id="mfa-code" name="mfa-code" inputMode="numeric"
+                  autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+                  value={mfaCode} onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  required disabled={isLoading} autoFocus />
+              </div>
+            )}
             <Button
               type="submit"
               className="w-full"

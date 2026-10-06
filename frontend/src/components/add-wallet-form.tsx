@@ -15,7 +15,7 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { ErrorDisplay, FieldError } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
-import { isValidXpub, isValidDescriptor, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
+import { isValidXpub, isValidDescriptor, isValidBitcoinAddress, getDescriptorScriptType, compactWalletKeyInput } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 
 type NetworkKey = 'mainnet' | 'testnet' | 'regtest'
@@ -121,7 +121,7 @@ export function AddWalletForm({
 
   // Set default script type for fresh XPUB wallets (auto not allowed)
   useEffect(() => {
-    if (isXpubFormat(descriptor) && isFreshWallet && (!scriptType || scriptType === "auto")) {
+    if (isValidXpub(descriptor) && isFreshWallet && (!scriptType || scriptType === "auto")) {
       setScriptType("p2wpkh") // Default to Native SegWit (most common)
     }
   }, [descriptor, isFreshWallet, scriptType])
@@ -208,7 +208,7 @@ export function AddWalletForm({
 
       const wallet = await api.createWallet({
         name: name.trim(),
-        descriptor: descriptor.trim(),
+        descriptor: compactWalletKeyInput(descriptor),
         isFreshWallet: isAddress ? undefined : (isFreshWallet || undefined),
         scriptType: isAddress ? undefined : finalScriptType,
         stopGap: isAddress ? undefined : (stopGap || undefined),
@@ -258,6 +258,7 @@ export function AddWalletForm({
           className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
           autoFocus={autoFocusDescriptor}
         />
+        <p className="text-xs text-muted-foreground">{t('add.descriptorHint')}</p>
       </div>
 
       {/* Advanced Settings - only shown for XPUB or output descriptor input */}

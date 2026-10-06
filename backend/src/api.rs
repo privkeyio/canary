@@ -2,18 +2,21 @@ use crate::config::{AppConfig, BillingProvider};
 use crate::electrum::ElectrumClientManager;
 use crate::handlers::{
     create_checkout_session, create_customer_portal, create_stripe_checkout_session,
-    create_stripe_customer_portal, create_wallet_balance_alert, create_wallet_contact,
-    create_wallet_non_blocking, delete_balance_alert, delete_wallet, delete_wallet_contact,
-    demo_login, donate_one_time, donate_recurring, forgot_password, get_billing_pricing,
-    get_billing_status, get_checkout_session_details, get_config, get_current_block_header,
-    get_database_health, get_exchange_rates, get_nostr_settings, get_providers,
+    create_stripe_customer_portal, create_support_access, create_wallet_balance_alert,
+    create_wallet_contact, create_wallet_non_blocking, delete_balance_alert, delete_wallet,
+    delete_wallet_contact, demo_login, donate_one_time, donate_recurring, export_bip329_labels,
+    forgot_password, get_billing_pricing, get_billing_status, get_checkout_session_details,
+    get_config, get_current_block_header, get_database_health, get_exchange_rates,
+    get_nostr_settings, get_providers, get_support_access, get_telegram_settings,
     get_transaction_notifications, get_user_preferences, get_wallet, get_wallet_balance_alerts,
     get_wallet_contacts, get_wallet_detail, get_wallet_notifications, get_wallets_list,
-    handle_btcpay_webhook, handle_stripe_webhook, login, logout, me, register, reset_password,
-    run_integrity_check, send_contact_verification, send_test_nostr_notification,
-    send_test_ntfy_notification, send_test_webhook_notification, submit_contact_form,
-    update_nostr_settings, update_user, update_user_preferences, update_wallet,
-    update_wallet_contact, validate_wallet_balance_alert, verify_contact, verify_email,
+    handle_btcpay_webhook, handle_stripe_webhook, import_bip329_labels, login, logout, me,
+    register, reset_password, revoke_support_access, run_integrity_check,
+    send_contact_verification, send_test_nostr_notification, send_test_ntfy_notification,
+    send_test_telegram_notification, send_test_webhook_notification, submit_contact_form,
+    update_nostr_settings, update_telegram_settings, update_transaction_label, update_user,
+    update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
+    verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::models::ErrorResponse;
@@ -45,18 +48,13 @@ impl AppServices {
     pub async fn get_wallets_list_for_user(
         &self,
         user_id: &str,
-        is_admin: bool,
     ) -> Result<WalletsListResponse, anyhow::Error> {
         // Get current timestamp
         let timestamp = current_unix_timestamp()
             .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {}", error))?;
 
-        // Get wallets based on user permissions - directly from metadata DB
-        let wallets = if is_admin {
-            self.metadata_db.get_all_wallets().await?
-        } else {
-            self.metadata_db.get_wallets_for_user(Some(user_id)).await?
-        };
+        // Operational administrator privileges do not grant customer wallet access.
+        let wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
 
         Ok(WalletsListResponse { timestamp, wallets })
     }
@@ -80,20 +78,11 @@ impl AppServices {
         );
 
         if is_admin {
-            tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
+            tracing::info!("Applying unlimited subscription limits for an admin account");
         } else if !is_subscription_active {
-            tracing::info!(
-                "🎯 Deactivating all wallets for user {} (status: {})",
-                user_id,
-                subscription_status
-            );
+            tracing::info!("Deactivating wallets for an inactive subscription");
         } else {
-            tracing::info!(
-                "🎯 Applying {} tier limits for user {} (status: {})",
-                tier,
-                user_id,
-                subscription_status
-            );
+            tracing::info!("Applying subscription tier limits");
         }
 
         // Get all wallets for this user ordered by creation time (oldest first)
@@ -120,7 +109,7 @@ impl AppServices {
         let mut active_wallet_count = 0;
         let mut non_failed_wallet_count = 0;
         for wallet in &wallets {
-            let (should_be_active, wallet_position) =
+            let (should_be_active, _wallet_position) =
                 crate::subscription::wallet_active_limit_decision(
                     &wallet.status,
                     wallet_limit,
@@ -128,29 +117,17 @@ impl AppServices {
                     &mut non_failed_wallet_count,
                 );
 
-            if let Err(e) = self
+            if let Err(_error) = self
                 .metadata_db
                 .update_wallet_active_status(&wallet.checksum, should_be_active)
                 .await
             {
-                tracing::error!(
-                    "Failed to update wallet {} active status: {}",
-                    wallet.checksum,
-                    e
-                );
+                tracing::error!("Failed to update wallet active status");
             } else if !should_be_active {
                 if wallet.status == "failed" {
-                    tracing::info!(
-                        "📵 Deactivated wallet '{}' - wallet is in failed state",
-                        wallet.name
-                    );
+                    tracing::info!("Deactivated a failed wallet");
                 } else {
-                    tracing::info!(
-                        "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
-                        wallet.name,
-                        wallet_position.expect("non-failed wallet must have a position"),
-                        tier
-                    );
+                    tracing::info!("Deactivated a wallet that exceeds the subscription limit");
                 }
             }
         }
@@ -180,28 +157,21 @@ impl AppServices {
                 let should_be_active = within_count_limit;
 
                 if let Some(contact_id) = &contact.id {
-                    tracing::debug!("🔍 Contact '{}' (index: {}, created_at: {:?}) - within_limit: {}, should_be_active: {}", 
-                        contact.name, index, contact.created_at, within_count_limit, should_be_active);
+                    tracing::debug!(
+                        index,
+                        within_count_limit,
+                        should_be_active,
+                        "Evaluating contact subscription limit"
+                    );
 
-                    if let Err(e) = self
+                    if let Err(_error) = self
                         .metadata_db
                         .update_contact_active_status(contact_id, should_be_active)
                         .await
                     {
-                        tracing::error!(
-                            "Failed to update contact {} active status: {}",
-                            contact_id,
-                            e
-                        );
+                        tracing::error!("Failed to update contact active status");
                     } else if !should_be_active {
-                        let reason =
-                            format!("exceeds {} tier limit of {} contacts", tier, contact_limit);
-                        tracing::info!(
-                            "📵 Deactivated contact '{}' in wallet '{}' - {}",
-                            contact.name,
-                            wallet.name,
-                            reason
-                        );
+                        tracing::info!("Deactivated a contact that exceeds the subscription limit");
                     }
                 }
             }
@@ -539,6 +509,14 @@ pub fn create_router_with_services(
             "/wallets/{checksum}/transactions/{txid}/notifications",
             get(get_transaction_notifications),
         )
+        .route(
+            "/wallets/{checksum}/transactions/{txid}/label",
+            put(update_transaction_label),
+        )
+        .route(
+            "/wallets/{checksum}/labels",
+            get(export_bip329_labels).post(import_bip329_labels),
+        )
         // Contact routes (authenticated)
         .route(
             "/wallets/{checksum}/contacts",
@@ -565,20 +543,28 @@ pub fn create_router_with_services(
         )
         // Test notification route (self-hosted only)
         .route("/ntfy/test", post(send_test_ntfy_notification))
+        .route("/telegram/test", post(send_test_telegram_notification))
+        .route(
+            "/telegram/settings",
+            get(get_telegram_settings).put(update_telegram_settings),
+        )
         .route("/webhook/test", post(send_test_webhook_notification))
         .route(
             "/nostr/settings",
             get(get_nostr_settings).put(update_nostr_settings),
         )
         .route("/nostr/test", post(send_test_nostr_notification))
+        .route("/providers", get(get_providers))
         // Database health & integrity (admin only)
         .route("/health/database", get(get_database_health))
         .route("/admin/database/integrity", post(run_integrity_check))
+        .route(
+            "/admin/support-access",
+            get(get_support_access)
+                .post(create_support_access)
+                .delete(revoke_support_access),
+        )
         .with_state(app_state.clone());
-
-    let provider_routes = Router::new()
-        .route("/providers", get(get_providers))
-        .with_state(notification_manager);
 
     // Stripe routes - only mounted if Stripe billing is available
     let stripe_routes = if stripe_billing.is_some() {
@@ -621,7 +607,6 @@ pub fn create_router_with_services(
     };
 
     let api_routes = app_state_routes
-        .merge(provider_routes)
         .merge(stripe_routes)
         .merge(btcpay_webhook_routes)
         .merge(donation_routes);

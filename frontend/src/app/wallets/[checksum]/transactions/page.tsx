@@ -31,12 +31,14 @@ export default function WalletDetailPage() {
     isCloudMode,
   } = useAuth()
   const t = useTranslations("wallets")
+  const tTransactions = useTranslations("transactions")
   const tCommon = useTranslations("common")
   const tApiErrors = useTranslations("errors.api")
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isRecoveryDeleting, setIsRecoveryDeleting] = useState(false)
   const [recoveryDeleteError, setRecoveryDeleteError] = useState<string | null>(null)
+  const [labelActionError, setLabelActionError] = useState<string | null>(null)
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
 
   // Redirect unauthenticated users to sign-in when in cloud mode
@@ -99,6 +101,43 @@ export default function WalletDetailPage() {
   const handleNameUpdated = () => {
     // Name was updated on backend by child component, refresh to get new data
     handleWalletUpdated()
+  }
+
+  const handleLabelChange = async (transaction: (typeof transactions)[number], label: string | null) => {
+    try {
+      await api.updateTransactionLabel(transaction.wallet_checksum, transaction.txid, label)
+      refresh()
+    } catch (error) {
+      console.error("Failed to update transaction label", error)
+      throw error
+    }
+  }
+
+  const exportLabels = async () => {
+    setLabelActionError(null)
+    try {
+      const content = await api.exportBip329Labels(checksum)
+      const url = URL.createObjectURL(new Blob([content], { type: "application/jsonl" }))
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `${wallet?.name || "wallet"}-labels.jsonl`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Failed to export transaction labels", error)
+      setLabelActionError(tTransactions("labelActionFailed"))
+    }
+  }
+
+  const importLabels = async (file: File) => {
+    setLabelActionError(null)
+    try {
+      await api.importBip329Labels(checksum, await file.text())
+      refresh()
+    } catch (error) {
+      console.error("Failed to import transaction labels", error)
+      setLabelActionError(tTransactions("labelActionFailed"))
+    }
   }
 
   const handleDeleteWallet = async (walletChecksum: string) => {
@@ -191,6 +230,9 @@ export default function WalletDetailPage() {
               wallet={wallet!}
               onDeleteClick={() => setIsDeleteModalOpen(true)}
               showActions={showActions}
+              onExportLabels={showActions ? exportLabels : undefined}
+              onImportLabels={showActions ? importLabels : undefined}
+              labelActionError={labelActionError}
             />
 
             {/* Transaction Events */}
@@ -208,6 +250,7 @@ export default function WalletDetailPage() {
                 loadingTransactionNotifications={loadingTransactionNotifications}
                 transactionNotificationErrors={transactionNotificationErrors}
                 loadTransactionNotifications={loadTransactionNotifications}
+                onLabelChange={showActions ? handleLabelChange : undefined}
               />
             </div>
           </div>

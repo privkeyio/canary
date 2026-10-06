@@ -15,10 +15,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { api, ApiError } from "@/lib/api"
 import { getTranslatedApiError } from "@/lib/utils"
-import { validateWebhookUrl } from "@/components/contact-modal/index"
+import { validateTelegramChatId, validateWebhookUrl } from "@/components/contact-modal/index"
 import { DEFAULT_NOTIFICATION_CONTENT_FIELDS } from "@/components/notification-content-fields-control"
-import type { BalanceDraft, ContactDraft, MethodDraft, WizardStep } from "./types"
+import type { BalanceDraft, ContactDraft, WizardStep } from "./types"
 import { DEFAULT_NEW_CONTACT_SETTINGS, generatePrivateNtfyTopic, txSettingsFromDraft } from "./utils"
+import {
+  clearCreateNotificationDraft,
+  getNotificationSession,
+  setCreateNotificationDraft,
+} from "./notification-draft-store"
+import type { WalletAlertBalance } from "./wallet-alert-balance"
 
 const STEPS: WizardStep[] = ["delivery", "alerts", "privacy"]
 
@@ -27,6 +33,7 @@ export function ContactCreationWizard({
   isSelfHostedMode,
   registeredProviderNames,
   preferredFiatCurrency,
+  alertBalance,
   onCancel,
   onCreated,
 }: {
@@ -34,29 +41,30 @@ export function ContactCreationWizard({
   isSelfHostedMode: boolean
   registeredProviderNames: string[]
   preferredFiatCurrency: string
+  alertBalance: WalletAlertBalance
   onCancel: () => void
   onCreated: (failedBalanceAlerts?: BalanceDraft[]) => void
 }) {
   const t = useTranslations("walletNotifications")
   const tContacts = useTranslations("contacts")
   const tApiErrors = useTranslations("errors.api")
-  const initialMethod = useRef<MethodDraft>({
-    provider_type: isSelfHostedMode ? "ntfy" : "email",
-    notification_target: isSelfHostedMode ? generatePrivateNtfyTopic() : "",
-    is_enabled: true,
-    content_fields: { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS },
-  })
-  const [step, setStep] = useState<WizardStep>("delivery")
-  const [draft, setDraft] = useState<ContactDraft>({
+  const restored = getNotificationSession(walletChecksum).create
+  const [step, setStep] = useState<WizardStep>(restored?.step ?? "delivery")
+  const [draft, setDraft] = useState<ContactDraft>(() => restored?.draft ?? {
     name: "",
-    methods: [{ ...initialMethod.current }],
+    methods: [{
+      provider_type: isSelfHostedMode ? "ntfy" : "email",
+      notification_target: isSelfHostedMode ? generatePrivateNtfyTopic() : "",
+      is_enabled: true,
+      content_fields: { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS },
+    }],
     ...DEFAULT_NEW_CONTACT_SETTINGS,
   })
-  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>([])
+  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>(restored?.balanceDrafts ?? [])
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [hasUserChanges, setHasUserChanges] = useState(false)
-  const [ntfyTopicWasEdited, setNtfyTopicWasEdited] = useState(false)
+  const [hasUserChanges, setHasUserChanges] = useState(Boolean(restored))
+  const [ntfyTopicWasEdited, setNtfyTopicWasEdited] = useState(Boolean(restored?.ntfyTopicWasEdited))
   const headingRef = useRef<HTMLHeadingElement>(null)
   const verification = useDeliveryVerification({
     walletChecksum,
@@ -64,6 +72,8 @@ export function ContactCreationWizard({
     originalSmsTarget: null,
     originalEmailTarget: null,
     onError: setError,
+    initialSmsVerified: restored?.verification.smsVerified,
+    initialEmailVerified: restored?.verification.emailVerified,
   })
   const method = draft.methods[0]
   const stepIndex = STEPS.indexOf(step)
@@ -72,6 +82,19 @@ export function ContactCreationWizard({
   useEffect(() => {
     headingRef.current?.focus()
   }, [step])
+
+  useEffect(() => {
+    setCreateNotificationDraft(walletChecksum, {
+      step,
+      draft,
+      balanceDrafts,
+      ntfyTopicWasEdited,
+      verification: {
+        smsVerified: verification.sms.isVerified,
+        emailVerified: verification.email.isVerified,
+      },
+    })
+  }, [walletChecksum, step, draft, balanceDrafts, ntfyTopicWasEdited, verification.sms.isVerified, verification.email.isVerified])
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -85,6 +108,7 @@ export function ContactCreationWizard({
 
   const cancel = () => {
     if (isDirty && !window.confirm(t("discard.confirm"))) return
+    clearCreateNotificationDraft(walletChecksum)
     onCancel()
   }
 
@@ -94,11 +118,15 @@ export function ContactCreationWizard({
       if (method.provider_type === "ntfy") return tContacts("errors.ntfyTopicRequired")
       if (method.provider_type === "nostr") return tContacts("errors.nostrRecipientRequired")
       if (method.provider_type === "webhook") return tContacts("errors.webhookUrlRequired")
+      if (method.provider_type === "telegram") return tContacts("errors.telegramChatIdRequired")
       if (method.provider_type === "sms") return tContacts("errors.phoneRequired")
       return tContacts("errors.emailRequired")
     }
     if (method.provider_type === "webhook" && !validateWebhookUrl(method.notification_target)) {
       return tContacts("add.webhook.invalidUrl")
+    }
+    if (method.provider_type === "telegram" && !validateTelegramChatId(method.notification_target)) {
+      return tContacts("add.telegram.invalidChatId")
     }
     if (!isMethodVerified(method, verification)) {
       return method.provider_type === "sms"
@@ -157,6 +185,7 @@ export function ContactCreationWizard({
         }))
       )
       const failed = balanceDrafts.filter((_, index) => results[index].status === "rejected")
+      clearCreateNotificationDraft(walletChecksum)
       onCreated(failed.length > 0 ? failed : undefined)
     } catch (caught) {
       setError(
@@ -230,6 +259,7 @@ export function ContactCreationWizard({
                 value={balanceDrafts}
                 onChange={(next) => { setHasUserChanges(true); setBalanceDrafts(next) }}
                 preferredFiatCurrency={preferredFiatCurrency}
+                alertBalance={alertBalance}
                 disabled={creating}
               />
             </div>

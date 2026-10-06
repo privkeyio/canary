@@ -8,6 +8,8 @@ extern crate rust_i18n;
 // Fallback to English (US) if translation is missing
 i18n!("locales", fallback = "en-US");
 
+pub mod admin_mfa;
+
 /// Fails the build unless `bitcoin` is the fork carrying BLAKE2b hardfork support.
 ///
 /// Syncing against a Knots-backed Electrum server needs the extended 164 byte block header, which
@@ -16,7 +18,6 @@ i18n!("locales", fallback = "en-US");
 /// library, would otherwise resolve the stock crates and compile clean, then mis-parse headers at
 /// runtime past the activation height. `V2_SIZE` exists only on the fork.
 const _: usize = bdk_wallet::bitcoin::block::Header::V2_SIZE;
-
 pub mod admin_notifications;
 pub mod api;
 pub mod auth;
@@ -44,6 +45,8 @@ pub mod stripe_billing;
 pub mod stripe_client_service;
 pub mod subscription;
 pub mod sync;
+pub mod telegram_provider;
+pub mod test_notification;
 pub mod tls;
 pub mod twilio_provider;
 pub mod utils;
@@ -72,8 +75,9 @@ pub use stripe_billing::{
     CheckoutSessionResponse, CustomerPortalResponse, FrontendPriceInfo, FrontendTierPricing,
     PricingInfo, StripeBilling,
 };
+pub use telegram_provider::TelegramProvider;
 pub use twilio_provider::TwilioProvider;
-pub use utils::{parse_multipath_descriptor, strip_key_origin};
+pub use utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
 pub use wallet::{WalletCreationService, WalletManager};
 pub use webhook_provider::WebhookProvider;
 pub use xpub_converter::{ScriptType, XpubConverter};

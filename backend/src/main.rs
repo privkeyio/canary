@@ -5,6 +5,7 @@ extern crate rust_i18n;
 // Fallback to English (US) if translation is missing
 i18n!("locales", fallback = "en-US");
 
+mod admin_mfa;
 mod admin_notifications;
 mod api;
 mod auth;
@@ -32,6 +33,8 @@ mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
 mod sync;
+mod telegram_provider;
+mod test_notification;
 mod tls;
 mod twilio_provider;
 mod utils;
@@ -48,12 +51,13 @@ use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
 use stripe_billing::StripeBilling;
 use subscription::SubscriptionTier;
+use telegram_provider::TelegramProvider;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
-use webhook_provider::{redact_webhook_url, WebhookProvider};
+use webhook_provider::WebhookProvider;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -138,7 +142,9 @@ async fn main() -> anyhow::Result<()> {
         "🏢 Operating mode: {}",
         config.operating_mode().to_uppercase()
     );
-    if config.is_cloud_mode() {
+    if config.is_restore_drill() {
+        println!("🛟 RESTORE DRILL: billing and customer notifications are disabled");
+    } else if config.is_cloud_mode() {
         println!("   - Multi-user with authentication");
         println!("   - Subscription billing enabled");
         println!("   - All notification providers available");
@@ -211,14 +217,11 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(None);
     let current_block_header = Arc::new(Mutex::new(existing_header));
 
-    // Initialize exchange rate service and start background refresh task
-    {
+    if !config.is_restore_drill() {
         let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(Arc::new(
             wallet_manager.metadata_db.clone(),
         ))?);
-
-        // Start background task to refresh exchange rates every 10 minutes
-        exchange_rate_service.clone().start_refresh_task();
+        exchange_rate_service.start_refresh_task();
     }
 
     // Create notification manager and register providers based on operating mode
@@ -226,10 +229,7 @@ async fn main() -> anyhow::Result<()> {
     if config.is_self_hosted_mode() {
         // Self-hosted mode: local notification providers
         let ntfy_server = config.ntfy_server_url();
-        println!(
-            "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
-            ntfy_server
-        );
+        println!("🔔 Self-hosted mode: Registering ntfy notifications");
         notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
             ntfy_server,
             NtfyAuth::None,
@@ -238,12 +238,19 @@ async fn main() -> anyhow::Result<()> {
         println!("  - JSON webhook notification provider");
         notification_manager.register_provider(Arc::new(WebhookProvider::new()));
 
+        if let Some(telegram_provider) =
+            TelegramProvider::for_self_hosted(app_services.metadata_db.clone())
+        {
+            println!("  - Telegram Bot notification provider");
+            notification_manager.register_provider(Arc::new(telegram_provider));
+        }
+
         match ensure_nostr_sender_keys(&app_services.metadata_db).await {
             Ok(nostr_keys) => {
-                println!(
-                    "  - Nostr DM notification provider (sender: {})",
-                    nostr_keys.sender_npub
-                );
+                println!("  - Nostr DM notification provider");
+                if let Ok(Some(addr)) = nostr_provider::nostr_onion_socks_proxy_from_env() {
+                    println!("    .onion inbox relays via SOCKS {addr} (CANARY_NOSTR_SOCKS_PROXY)");
+                }
                 notification_manager.register_provider(Arc::new(NostrProvider::with_metadata_db(
                     nostr_keys,
                     Some(app_services.metadata_db.clone()),
@@ -261,13 +268,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     } else {
-        // Cloud mode: Register all configured providers
+        // Cloud mode: email and SMS (plus ntfy when enabled). Telegram is self-hosted only.
         println!("🔔 Cloud mode: Registering all notification providers");
 
         // Register ntfy provider (always available)
         if config.is_ntfy_enabled() {
             let ntfy_server = config.ntfy_server_url();
-            println!("  - ntfy notification provider (server: {})", ntfy_server);
+            println!("  - ntfy notification provider");
             notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
                 ntfy_server,
                 NtfyAuth::None,
@@ -340,7 +347,7 @@ async fn main() -> anyhow::Result<()> {
 
     // For demo user, ensure bacon wallet is created through normal wallet creation flow (ONCE only)
     // This works for regtest, testnet, and mainnet with network-specific descriptors
-    {
+    if !config.is_restore_drill() {
         // Network-specific bacon wallet descriptors (watch-only XPUBs)
         let bacon_descriptor = match config.network() {
             bdk_wallet::bitcoin::Network::Regtest => {
@@ -477,7 +484,7 @@ async fn main() -> anyhow::Result<()> {
     // Uses the actual P2PK public key (not P2PKH address) — the P2PKH address receives
     // tens of thousands of donation transactions that overwhelm Electrum sync, while
     // the P2PK output has only ~11 transactions.
-    if config.network() == bdk_wallet::bitcoin::Network::Bitcoin {
+    if !config.is_restore_drill() && config.network() == bdk_wallet::bitcoin::Network::Bitcoin {
         let demo_user_result = app_services
             .metadata_db
             .get_user_by_email("demo@canarybitcoin.com")
@@ -999,15 +1006,11 @@ async fn main() -> anyhow::Result<()> {
                                     user_ntfy_server_url.as_deref(),
                                 );
 
-                                let ntfy_provider = if notification_config
-                                    .should_trust_ntfy_server_url(
-                                        &ntfy_server,
-                                        user_ntfy_server_url.as_deref(),
-                                    ) {
-                                    NtfyProvider::with_trusted_auth(ntfy_server, ntfy_auth)
-                                } else {
-                                    NtfyProvider::with_auth(ntfy_server, ntfy_auth)
-                                };
+                                let ntfy_provider = notification_config.ntfy_provider(
+                                    ntfy_server,
+                                    ntfy_auth,
+                                    user_ntfy_server_url.as_deref(),
+                                );
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(
@@ -1095,25 +1098,9 @@ async fn main() -> anyhow::Result<()> {
                                         total_sent += 1;
                                     } else {
                                         failed_count += 1;
-                                        // Log the actual error for debugging
-                                        let display_target = if notification_method.provider_type
-                                            == crate::metadata::ProviderType::Webhook
-                                        {
-                                            redact_webhook_url(
-                                                &notification_method.notification_target,
-                                            )
-                                        } else {
-                                            notification_method.notification_target.clone()
-                                        };
-                                        eprintln!(
-                                            "❌ {} notification failed for {}: {}",
-                                            provider_name,
-                                            display_target,
-                                            result
-                                                .error_message
-                                                .as_deref()
-                                                .unwrap_or("Unknown error")
-                                        );
+                                        // Targets and provider errors can contain private contact
+                                        // details, URLs, tokens, or untrusted response bodies.
+                                        tracing::warn!(provider = %provider_name, "Notification delivery failed");
                                     }
 
                                     // Track failures for SMS and Email providers and send admin alerts
@@ -1338,7 +1325,7 @@ async fn apply_startup_subscription_limits(
     for user in users {
         // Apply subscription limits for ALL users
         // The function will deactivate wallets for expired/past_due/canceled users
-        if let Err(e) = wallet_manager
+        if let Err(_error) = wallet_manager
             .apply_subscription_limits(
                 &user.id,
                 user.subscription_tier.as_str(),
@@ -1349,21 +1336,10 @@ async fn apply_startup_subscription_limits(
             )
             .await
         {
-            tracing::error!(
-                "Failed to apply subscription limits for user {}: {}",
-                user.id,
-                e
-            );
-        } else if user.is_admin {
-            tracing::info!("✅ Applied unlimited limits for admin user {}", user.id);
-        } else {
-            tracing::info!(
-                "✅ Applied {} tier limits for user {}",
-                user.subscription_tier.as_str(),
-                user.id
-            );
+            tracing::error!("Failed to apply subscription limits for an account");
         }
     }
 
+    tracing::info!("Finished applying subscription limits");
     Ok(())
 }

@@ -25,6 +25,7 @@ jest.mock('../../lib/api', () => {
       updateContact: jest.fn(),
       deleteContact: jest.fn(),
       sendTestWebhookNotification: jest.fn(),
+      sendTestTelegramNotification: jest.fn(),
       getUserPreferences: jest.fn(),
       getConfig: jest.fn(),
     },
@@ -65,6 +66,12 @@ const mockWebhookProvider = {
   config_schema: {},
 }
 
+const mockTelegramProvider = {
+  name: 'telegram',
+  display_name: 'Telegram',
+  config_schema: {},
+}
+
 const mockContact = {
   id: 1,
   name: 'Test Contact',
@@ -94,6 +101,7 @@ describe('ContactModal', () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
+      isSelfHostedMode: true,
     })
     mockApi.getProviders.mockResolvedValue({ providers: mockProviders })
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
@@ -101,6 +109,7 @@ describe('ContactModal', () => {
     mockApi.createContact.mockResolvedValue({ id: 1 })
     mockApi.updateContact.mockResolvedValue({ id: 1 })
     mockApi.sendTestWebhookNotification.mockResolvedValue({ success: true })
+    mockApi.sendTestTelegramNotification.mockResolvedValue({ success: true })
     mockApi.getConfig.mockResolvedValue({
       tx_explorers: [],
       default_tx_explorer_id: 'mempool-space',
@@ -163,14 +172,14 @@ describe('ContactModal', () => {
       })
 
       // Provider names come from translations: add.providers.ntfy, .twilio, .email
-      expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+      expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       expect(screen.getByText('Email Notifications')).toBeInTheDocument()
     })
 
     it('excludes webhook when provider discovery omits it in cloud mode', async () => {
       render(<ContactModal {...defaultProps} />)
-      await screen.findByText('ntfy.sh Notifications')
+      await screen.findByText('ntfy Notifications')
       expect(screen.queryByText('JSON Webhook')).not.toBeInTheDocument()
     })
 
@@ -178,6 +187,42 @@ describe('ContactModal', () => {
       mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockWebhookProvider] })
       render(<ContactModal {...defaultProps} />)
       expect(await screen.findByText('JSON Webhook')).toBeInTheDocument()
+    })
+
+    it('excludes telegram when provider discovery omits it', async () => {
+      render(<ContactModal {...defaultProps} />)
+      await screen.findByText('ntfy Notifications')
+      expect(screen.queryByText('Telegram')).not.toBeInTheDocument()
+    })
+
+    it('shows telegram when provider discovery includes it', async () => {
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockTelegramProvider] })
+      render(<ContactModal {...defaultProps} />)
+      expect(await screen.findByText('Telegram')).toBeInTheDocument()
+    })
+
+    it('keeps a saved Telegram method removable when the token is no longer configured', async () => {
+      const user = userEvent.setup()
+      const telegramContact = {
+        ...mockContact,
+        notification_methods: [
+          {
+            id: 2,
+            provider_type: 'telegram' as const,
+            notification_target: '123456789',
+            display_target: '123456789',
+            verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+      }
+
+      render(<ContactModal {...defaultProps} editContact={telegramContact} />)
+
+      const telegramCheckbox = await screen.findByRole('checkbox', { name: /Telegram/ })
+      expect(telegramCheckbox).toBeChecked()
+      await user.click(telegramCheckbox)
+      expect(telegramCheckbox).not.toBeChecked()
     })
   })
 
@@ -189,6 +234,7 @@ describe('ContactModal', () => {
 
       await user.type(await screen.findByLabelText('Name'), 'Automation')
       await user.click(screen.getByRole('checkbox', { name: /JSON Webhook/ }))
+      expect(screen.getByText(/choose ntfy and enter a topic name/i)).toBeInTheDocument()
       const url = 'http://receiver.local:8080/canary?token=secret'
       await user.type(screen.getByLabelText('Webhook URL'), url)
       await user.click(screen.getByRole('button', { name: 'Test' }))
@@ -196,7 +242,7 @@ describe('ContactModal', () => {
       await waitFor(() => {
         expect(mockApi.sendTestWebhookNotification).toHaveBeenCalledWith(url)
       })
-      expect(await screen.findByText('Test webhook delivered successfully.')).toBeInTheDocument()
+      expect(await screen.findByText('Test webhook delivered. This checks that the URL is reachable.')).toBeInTheDocument()
 
       await user.click(screen.getByText('Create Contact'))
       await waitFor(() => {
@@ -226,6 +272,50 @@ describe('ContactModal', () => {
       expect(mockApi.createContact).not.toHaveBeenCalled()
     })
 
+    it('creates and tests a telegram contact', async () => {
+      const user = userEvent.setup()
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockTelegramProvider] })
+      render(<ContactModal {...defaultProps} />)
+
+      await user.type(await screen.findByLabelText('Name'), 'Ops')
+      await user.click(screen.getByRole('checkbox', { name: /Telegram/ }))
+      const chatId = '@CanaryAlerts'
+      await user.type(screen.getByLabelText('Telegram chat ID'), chatId)
+      await user.click(screen.getByRole('button', { name: 'Test' }))
+
+      await waitFor(() => {
+        expect(mockApi.sendTestTelegramNotification).toHaveBeenCalledWith(chatId)
+      })
+      expect(await screen.findByText('Test Telegram message delivered. This checks that the bot can reach this chat.')).toBeInTheDocument()
+
+      await user.click(screen.getByText('Create Contact'))
+      await waitFor(() => {
+        expect(mockApi.createContact).toHaveBeenCalledWith(
+          'test-checksum',
+          'Ops',
+          [{
+            provider_type: 'telegram',
+            notification_target: chatId,
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
+        )
+      })
+    })
+
+    it('blocks creation when the telegram chat ID is invalid', async () => {
+      const user = userEvent.setup()
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockTelegramProvider] })
+      render(<ContactModal {...defaultProps} />)
+
+      await user.type(await screen.findByLabelText('Name'), 'Ops')
+      await user.click(screen.getByRole('checkbox', { name: /Telegram/ }))
+      await user.type(screen.getByLabelText('Telegram chat ID'), '@ab')
+      await user.click(screen.getByText('Create Contact'))
+
+      expect(screen.getAllByText(/numeric Telegram chat ID/).length).toBeGreaterThan(0)
+      expect(mockApi.createContact).not.toHaveBeenCalled()
+    })
+
     it('allows creating contact with ntfy only', async () => {
       const user = userEvent.setup()
       await act(async () => {
@@ -233,12 +323,13 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
       // Fill in name and select ntfy
       await user.type(screen.getByLabelText('Name'), 'Test Contact')
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
+      expect(screen.getByText(/not a URL/i)).toBeInTheDocument()
 
       // Submit
       await user.click(screen.getByText('Create Contact'))
@@ -309,10 +400,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       expect(screen.getByText(/local ntfy/)).toBeInTheDocument()
       expect(screen.queryByText(/ntfy_app_1/)).not.toBeInTheDocument()
@@ -341,10 +432,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       await waitFor(() => {
         expect(screen.getByLabelText('ntfy Topic')).toHaveValue('canary')
@@ -358,10 +449,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
       await user.click(screen.getByText('Create Contact'))
 
       await waitFor(() => {
@@ -780,7 +871,7 @@ describe('ContactModal', () => {
       render(<ContactModal {...defaultProps} />)
 
       const providerCheckbox = await screen.findByRole('checkbox', {
-        name: /ntfy\.sh Notifications/,
+        name: /ntfy Notifications/,
       })
       await user.click(providerCheckbox)
       await user.click(screen.getByRole('button', { name: 'Customize notification content' }))
@@ -796,11 +887,11 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
       // Enable multiple providers
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
 
@@ -820,10 +911,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
       await user.click(screen.getByText('Create Contact'))
 
       await waitFor(() => {
@@ -926,7 +1017,7 @@ describe('ContactModal', () => {
 
       // Fill in contact details - only enable ntfy to simplify test
       await user.type(screen.getByLabelText('Name'), 'Duplicate Contact')
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       // Try to create contact - should fail with duplicate error
       await user.click(screen.getByText('Create Contact'))
@@ -956,7 +1047,7 @@ describe('ContactModal', () => {
 
       // Fill in contact details - only enable ntfy to simplify test
       await user.type(screen.getByLabelText('Name'), 'Duplicate SMS Contact')
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       // Try to create contact - should fail with duplicate error
       await user.click(screen.getByText('Create Contact'))

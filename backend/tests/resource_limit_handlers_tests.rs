@@ -2,7 +2,6 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use bdk_wallet::bitcoin::Network;
 use canary::{
     api::{create_router_with_services, AppServices},
     auth::{AuthService, Claims, DEV_TEST_PASSWORD},
@@ -10,11 +9,10 @@ use canary::{
     electrum::ElectrumClientManager,
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
-    WebhookProvider,
+    TelegramProvider, WebhookProvider,
 };
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
-use miniscript::DescriptorPublicKey;
 use nostr_sdk::prelude::{Keys, ToBech32};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -26,9 +24,9 @@ use tower::ServiceExt;
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
 const ADMIN_USER_EMAIL: &str = "delivered+admin@resend.dev";
 const PERSONAL_USER_EMAIL: &str = "delivered+alice@resend.dev";
+const TEAM_USER_EMAIL: &str = "delivered+bob@resend.dev";
 const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
 const SECOND_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)";
-const VALID_TESTNET_XPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
 
 async fn create_test_app(
     operating_mode: OperatingMode,
@@ -84,6 +82,11 @@ async fn create_test_app(
     let mut manager = NotificationManager::new();
     if test_config.is_self_hosted_mode() {
         manager.register_provider(Arc::new(WebhookProvider::new()));
+        if let Some(telegram_provider) =
+            TelegramProvider::for_self_hosted(app_services.metadata_db.clone())
+        {
+            manager.register_provider(Arc::new(telegram_provider));
+        }
     }
     let notification_manager = Arc::new(Mutex::new(manager));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
@@ -137,8 +140,59 @@ async fn login_personal_user(app: &axum::Router) -> String {
     login_user(app, PERSONAL_USER_EMAIL).await
 }
 
-async fn login_admin_user(app: &axum::Router) -> String {
-    login_user(app, ADMIN_USER_EMAIL).await
+async fn login_team_user(app: &axum::Router) -> String {
+    login_user(app, TEAM_USER_EMAIL).await
+}
+
+async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
+    use bdk_wallet::rusqlite::{params, Connection};
+    use std::os::unix::fs::PermissionsExt;
+
+    // Cloud administrators must now have an externally provisioned factor.
+    // These synthetic fixture values never leave the temporary test directory.
+    let connection = Connection::open(db_path).unwrap();
+    let user_id: String = connection
+        .query_row(
+            "SELECT id FROM users WHERE email = ?1",
+            params![ADMIN_USER_EMAIL],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
+    let factor_path = std::path::Path::new(db_path).with_file_name("admin-mfa.json");
+    std::fs::write(
+        &factor_path,
+        json!({user_id: secret.to_base32()}).to_string(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&factor_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &factor_path);
+
+    let code = totp_rs::Builder::new()
+        .with_secret(secret)
+        .build()
+        .unwrap()
+        .generate(chrono::Utc::now().timestamp() as u64)
+        .to_string();
+    let request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "email": ADMIN_USER_EMAIL,
+                "password": DEV_TEST_PASSWORD,
+                "mfa_code": code,
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    body_to_json(response.into_body()).await["token"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 fn self_hosted_admin_token() -> String {
@@ -341,23 +395,49 @@ async fn post_webhook_test(
     (status, body)
 }
 
-fn derive_regtest_address(script_type: &str, index: u32) -> String {
-    let descriptor = match script_type {
-        "p2pkh" => format!("pkh({}/0/*)", VALID_TESTNET_XPUB),
-        "p2sh" => format!("sh(wpkh({}/0/*))", VALID_TESTNET_XPUB),
-        "p2wpkh" => format!("wpkh({}/0/*)", VALID_TESTNET_XPUB),
-        "p2tr" => format!("tr({}/0/*)", VALID_TESTNET_XPUB),
-        _ => panic!("unsupported script type"),
-    };
+async fn telegram_settings(
+    app: &axum::Router,
+    token: &str,
+    method: &str,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .uri("/api/telegram/settings")
+        .method(method)
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(body.map_or_else(Body::empty, |value| Body::from(value.to_string())))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
 
-    let descriptor: miniscript::descriptor::Descriptor<DescriptorPublicKey> =
-        descriptor.parse().unwrap();
-    descriptor
-        .at_derivation_index(index)
+async fn get_providers(app: &axum::Router) -> (StatusCode, Value) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/providers")
+                .method("GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
+fn provider_names(body: &Value) -> Vec<&str> {
+    body["providers"]
+        .as_array()
         .unwrap()
-        .address(Network::Regtest)
-        .unwrap()
-        .to_string()
+        .iter()
+        .filter_map(|provider| provider["name"].as_str())
+        .collect()
 }
 
 #[tokio::test]
@@ -518,37 +598,35 @@ async fn test_self_hosted_mode_bypasses_contact_limits() {
 }
 
 #[tokio::test]
-async fn test_admin_user_bypasses_contact_limits() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+async fn test_cloud_admin_cannot_add_contacts_to_customer_wallets() {
+    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let owner = login_personal_user(&app).await;
+    let admin = login_admin_user(&app, &db_path).await;
 
     let wallet = create_wallet(
         &app,
-        &token,
-        "Admin Contact Wallet",
+        &owner,
+        "Customer Contact Wallet",
         VALID_TESTNET_DESCRIPTOR,
     )
     .await;
     let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
-    wait_for_auto_contact(&app, &token, checksum).await;
 
-    for index in 0..5 {
-        let status = create_contact(
-            &app,
-            Some(&token),
-            checksum,
-            &format!("Admin Extra Contact {}", index + 1),
-            &format!("admin-extra-topic-{}", index + 1),
-        )
-        .await;
-        assert_eq!(status, StatusCode::CREATED);
-    }
+    let status = create_contact(
+        &app,
+        Some(&admin),
+        checksum,
+        "Admin Extra Contact",
+        "admin-extra-topic",
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_nostr_contact_method() {
     let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+    let token = login_team_user(&app).await;
 
     let wallet = create_wallet(&app, &token, "Cloud Nostr Wallet", VALID_TESTNET_DESCRIPTOR).await;
     let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
@@ -576,7 +654,7 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
 #[tokio::test]
 async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
     let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+    let token = login_team_user(&app).await;
     let wallet = create_wallet(
         &app,
         &token,
@@ -616,6 +694,119 @@ async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
     let (status, body) = post_webhook_test(&app, Some(&token), "https://example.com/canary").await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error_code"], "webhook_self_hosted_only");
+}
+
+#[tokio::test]
+async fn test_cloud_mode_rejects_telegram_contacts_and_settings() {
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_team_user(&app).await;
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Cloud Telegram Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+
+    let (status, body) =
+        create_contact_with_provider(&app, &token, checksum, "telegram", "123456789").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "telegram_self_hosted_only");
+
+    let (status, body) = telegram_settings(&app, &token, "GET", None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "telegram_self_hosted_only");
+
+    let (status, body) = telegram_settings(
+        &app,
+        &token,
+        "PUT",
+        Some(json!({ "bot_token": "123456:ABC-DEF" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "telegram_self_hosted_only");
+}
+
+#[tokio::test]
+async fn test_self_hosted_telegram_settings_gate_provider_and_never_echo_token() {
+    let previous_token = std::env::var("TELEGRAM_BOT_TOKEN").ok();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+
+    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+    let token = self_hosted_admin_token();
+
+    let (status, providers) = get_providers(&app).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!provider_names(&providers).contains(&"telegram"));
+
+    let (status, body) = telegram_settings(&app, &token, "GET", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["configured"], false);
+    assert!(body.get("bot_token").is_none());
+
+    let saved_token = "123456:settings-secret-token";
+    let (status, body) = telegram_settings(
+        &app,
+        &token,
+        "PUT",
+        Some(json!({ "bot_token": saved_token })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["configured"], true);
+    assert!(body.get("bot_token").is_none());
+    assert!(!body.to_string().contains(saved_token));
+
+    let (status, providers) = get_providers(&app).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(provider_names(&providers).contains(&"telegram"));
+
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Self-hosted Telegram Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+    let (status, contact) =
+        create_contact_with_provider(&app, &token, checksum, "telegram", "123456789").await;
+    assert_eq!(status, StatusCode::CREATED, "{contact}");
+    let contact_id = contact["contact_id"].as_str().unwrap();
+
+    let (status, body) =
+        telegram_settings(&app, &token, "PUT", Some(json!({ "bot_token": "" }))).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["configured"], false);
+
+    let (status, body) =
+        update_contact_with_provider(&app, &token, checksum, contact_id, "telegram", "123456789")
+            .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) =
+        update_contact_with_provider(&app, &token, checksum, contact_id, "telegram", "987654321")
+            .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(body["error_code"], "telegram_not_configured");
+
+    let (status, body) = update_contact_with_provider(
+        &app,
+        &token,
+        checksum,
+        contact_id,
+        "ntfy",
+        "replacement-topic",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    match previous_token {
+        Some(value) => std::env::set_var("TELEGRAM_BOT_TOKEN", value),
+        None => std::env::remove_var("TELEGRAM_BOT_TOKEN"),
+    }
 }
 
 #[tokio::test]
@@ -852,35 +1043,26 @@ async fn test_legacy_privacy_and_custom_fields_follow_independent_methods() {
 }
 
 #[tokio::test]
-async fn test_admin_user_bypasses_wallet_limits() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+async fn test_cloud_admin_cannot_create_wallets() {
+    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app, &db_path).await;
 
-    let wallet_inputs = [
-        VALID_TESTNET_DESCRIPTOR.to_string(),
-        SECOND_TESTNET_DESCRIPTOR.to_string(),
-        derive_regtest_address("p2pkh", 0),
-        derive_regtest_address("p2sh", 0),
-        derive_regtest_address("p2wpkh", 0),
-        derive_regtest_address("p2tr", 0),
-    ];
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Admin Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR,
+            })
+            .to_string(),
+        ))
+        .unwrap();
 
-    for (index, descriptor) in wallet_inputs.iter().enumerate() {
-        let request = Request::builder()
-            .uri("/api/wallets")
-            .method("POST")
-            .header("authorization", format!("Bearer {token}"))
-            .header("content-type", "application/json")
-            .body(Body::from(
-                json!({
-                    "name": format!("Admin Wallet {}", index + 1),
-                    "descriptor": descriptor,
-                })
-                .to_string(),
-            ))
-            .unwrap();
-
-        let response = app.clone().oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::CREATED);
-    }
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "admin_wallets_unsupported");
 }

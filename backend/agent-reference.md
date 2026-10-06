@@ -10,7 +10,7 @@ Canary Wallet is a Bitcoin wallet management service built in Rust that provides
 - **Development Environment**: Docker-based Bitcoin regtest + Fulcrum Electrum server setup
 - **Authentication**: Optional JWT-based multi-user system with email verification
 - **Billing**: Stripe integration with subscription management and webhook processing
-- **Notifications**: Plugin-based system supporting ntfy.sh, Twilio SMS, and Resend email
+- **Notifications**: Plugin-based system supporting ntfy.sh, Twilio SMS, Resend email, Nostr DMs, JSON webhooks, and Telegram bots
 
 ## Development Commands
 
@@ -111,6 +111,7 @@ src/
   ntfy_provider.rs          # ntfy.sh push notifications
   twilio_provider.rs        # Twilio SMS notifications
   email_provider.rs         # Resend email notifications
+  telegram_provider.rs     # Telegram Bot notifications
   email_queue.rs            # Background email queue with batching
   email_service.rs          # Email service abstraction
   admin_notifications.rs    # Admin notification system
@@ -201,6 +202,9 @@ TWILIO_SENDER_ID=Canary
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 
+# Telegram Bot (self-hosted only; Settings is preferred, env is an optional fallback)
+# TELEGRAM_BOT_TOKEN=123456:ABC-DEF
+
 # Transaction explorers (self-hosted only)
 # CANARY_MEMPOOL_URL=http://umbrel.local:3006            # Full URL to custom instance
 # CANARY_BITFEED_URL=http://umbrel.local:8314            # Full URL to custom instance
@@ -209,6 +213,10 @@ RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 # CANARY_BITFEED_PORT=8314                               # Auto-detected on Umbrel via exports.sh
 # CANARY_BTC_RPC_EXPLORER_PORT=3002                      # Auto-detected on Umbrel via exports.sh
 # CANARY_TX_EXPLORER_PLATFORM=umbrel                     # Optional platform label for local explorers
+
+# Optional SOCKS5 proxy for NIP-17 .onion inbox relays (self-hosted).
+# Requires system Tor or equivalent. Clearnet relays stay direct.
+# CANARY_NOSTR_SOCKS_PROXY=127.0.0.1:9050
 ```
 
 ### Frontend Environment Variables

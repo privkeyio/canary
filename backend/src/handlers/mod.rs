@@ -1,5 +1,6 @@
 //! API request handlers organized by domain
 
+mod admin_support;
 pub(crate) mod auth;
 mod balance_alerts;
 mod billing;
@@ -15,6 +16,7 @@ mod providers;
 mod user_preferences;
 mod wallet;
 
+pub use admin_support::{create_support_access, get_support_access, revoke_support_access};
 pub use auth::{
     demo_login, extract_token_from_cookies, forgot_password, login, logout, me, register,
     reset_password, submit_contact_form, update_user, verify_email,
@@ -37,12 +39,14 @@ pub use contact_verification::{send_contact_verification, verify_contact};
 pub use donations::{donate_one_time, donate_recurring};
 pub use health::{get_database_health, run_integrity_check};
 pub use notifications::{
-    get_nostr_settings, send_test_nostr_notification, send_test_ntfy_notification,
-    send_test_webhook_notification, update_nostr_settings,
+    get_nostr_settings, get_telegram_settings, send_test_nostr_notification,
+    send_test_ntfy_notification, send_test_telegram_notification, send_test_webhook_notification,
+    update_nostr_settings, update_telegram_settings,
 };
 pub use providers::get_providers;
 pub use user_preferences::{get_user_preferences, update_user_preferences};
 pub use wallet::{
-    create_wallet_non_blocking, delete_wallet, get_transaction_notifications, get_wallet,
-    get_wallet_detail, get_wallet_notifications, get_wallets_list, update_wallet,
+    create_wallet_non_blocking, delete_wallet, export_bip329_labels, get_transaction_notifications,
+    get_wallet, get_wallet_detail, get_wallet_notifications, get_wallets_list,
+    import_bip329_labels, update_transaction_label, update_wallet,
 };

@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useState } from "react"
 import type { ReactNode } from "react"
-import { Bell, ChevronDown } from "lucide-react"
+import { Bell, ChevronDown, Send } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,10 +13,11 @@ import {
   type NtfyServerSettingsProps,
 } from "@/components/settings/ntfy-server-settings"
 import { NostrSettingsContent } from "@/components/settings/nostr-settings"
+import { TelegramSettingsContent } from "@/components/settings/telegram-settings"
 
 export function NotificationMethodSettings(props: NtfyServerSettingsProps) {
   const t = useTranslations("settings")
-  const [openProvider, setOpenProvider] = useState<"ntfy" | "nostr" | null>(null)
+  const [openProvider, setOpenProvider] = useState<"ntfy" | "nostr" | "telegram" | null>(null)
 
   return (
     <Card>
@@ -63,6 +64,20 @@ export function NotificationMethodSettings(props: NtfyServerSettingsProps) {
         >
           <NostrSettingsContent />
         </NotificationProviderPanel>
+
+        <NotificationProviderPanel
+          isOpen={openProvider === "telegram"}
+          onOpenChange={(isOpen) => setOpenProvider(isOpen ? "telegram" : null)}
+          icon={
+            <div className="flex h-full w-full items-center justify-center text-foreground">
+              <Send className="h-4 w-4" aria-hidden="true" />
+            </div>
+          }
+          title={t("telegram.title")}
+          description={t("telegram.description")}
+        >
+          <TelegramSettingsContent />
+        </NotificationProviderPanel>
       </CardContent>
     </Card>
   )
@@ -95,11 +110,11 @@ function NotificationProviderPanel({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto w-full justify-between gap-3 p-0 text-left text-foreground hover:bg-transparent hover:text-foreground"
+                className="h-auto w-full justify-between gap-3 p-0 text-left whitespace-normal text-foreground hover:bg-transparent hover:text-foreground"
               >
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium leading-none">{title}</span>
-                  <span className="mt-1 block text-sm font-normal text-muted-foreground">{description}</span>
+                  <span className="mt-1 block whitespace-normal break-words text-sm font-normal text-muted-foreground">{description}</span>
                 </span>
                 <ChevronDown
                   className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
