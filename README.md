@@ -29,7 +29,7 @@ Only Bitcoin Knots schedules the hardfork, and only a BLAKE2b-aware Electrum ser
 
 ## Verification
 
-The whole chain is verified against a live Knots-backed Electrum server, and `backend/system_tests/blake2b_hardfork_headers.rs` drives the real client over a socket against a fake one, asserting both the recombined timestamp and the BLAKE2b block id. Removing the patches reproduces the production error exactly.
+The whole chain is verified against a live Knots-backed Electrum server, and `backend/system_tests/blake2b_hardfork_headers.rs` drives the real client over a socket against a fake one, asserting both the recombined timestamp and the BLAKE2b block id. Removing the `bitcoin` patch reproduces the production error exactly. The `electrum-client` patch is not covered by that test: it rewrites the pre-1.6 concatenated-header path, and a server advertising protocol 1.6, which Fulcrum does, takes the array path instead.
 
 ---
 
@@ -52,7 +52,7 @@ Start with a clean watch-only wallet list and add your first wallet when you are
 _Start from an empty wallet list and add the first watch-only wallet._
 
 ### Add a Wallet
-Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary Wallet only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
+Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Single-sig and multisig watch-only wallets are both supported. Canary Wallet only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
 
 ![Add wallet form with a Test wallet descriptor filled in](screenshots/screenshot-01.png)
 _Add a read-only descriptor for a wallet named Test._
@@ -83,6 +83,11 @@ _Configure appearance, regional preferences, transaction explorer, and ntfy noti
 
 ## Key Features
 
+### Watch-only wallets
+- Single-sig and multisig wallets
+- Output descriptors, XPUBs, and individual addresses
+- No seed phrases or private keys
+
 ### Transaction Monitoring
 - Sending and receiving bitcoin notifications
 - Transaction confirmation alerts
@@ -96,7 +101,7 @@ _Configure appearance, regional preferences, transaction explorer, and ntfy noti
 - Auto-disable after firing with manual reactivation
 
 ### Notifications
-Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push notifications, encrypted **Nostr DMs**, and self-hosted **JSON webhooks**.
+Real-time notifications in 9 languages via **ntfy** push (default public server [ntfy.sh](https://ntfy.sh), or a local server such as the Umbrel ntfy app), encrypted **Nostr DMs**, self-hosted **JSON webhooks**, and optional **Telegram** bot messages.
 
 [canarybitcoin.com](https://canarybitcoin.com) additionally supports **SMS** (via Twilio) and **Email** (via Resend) notifications.
 
@@ -104,14 +109,18 @@ Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push n
 
 > **Umbrel / Docker note:** On Umbrel, Canary Wallet auto-detects the local ntfy app through the Docker-internal URL provided by the Umbrel package. You should not need to enter `http://ntfy_app_1` manually. Use "Send Test Notification" in Settings to verify your configuration.
 >
+With `CANARY_MODE=self-hosted`, custom ntfy URLs can use Docker-internal names (such as `http://ntfy` on a shared Docker network), LAN addresses (such as `http://192.168.1.20:8080`), and Tailscale addresses or MagicDNS names (such as `http://100.64.0.10:8080`). This works on Umbrel, StartOS, myNode, and standalone Docker without an extra flag. Existing saved private URLs work after upgrading. The Canary **backend** must be able to resolve the hostname and reach the server; browser access alone is insufficient. Loopback addresses refer to the backend's own network namespace. Link-local metadata and other special-purpose addresses remain blocked for custom servers. Custom self-hosted ntfy connections bypass HTTP proxy environment settings to connect directly to validated addresses. Detected integrations and operator defaults retain their existing connection behavior.
+
 > **StartOS note:** StartOS packages can provision a scoped local ntfy publisher and pass it to Canary Wallet with `CANARY_NTFY_SERVER_URL`, `CANARY_NTFY_TOKEN`, and `CANARY_NTFY_TOPIC`. These values are used as defaults; settings saved in Canary Wallet remain authoritative.
+>
+> **Nostr .onion relays:** NIP-17 delivery to `.onion` inbox relays needs system Tor (or equivalent SOCKS5). Set `CANARY_NOSTR_SOCKS_PROXY` to the SOCKS port, typically `127.0.0.1:9050`. Public clearnet relays keep using a direct connection.
 
 ## Self-Hosted vs. canarybitcoin.com
 
 | | Self-Hosted | [canarybitcoin.com](https://canarybitcoin.com) |
 |---|---|---|
 | **Users** | Single user, no auth required | Multi-user with email/password authentication |
-| **Notifications** | ntfy.sh + Nostr DM + JSON webhook | ntfy.sh + SMS + Email |
+| **Notifications** | ntfy + Nostr DM + JSON webhook + Telegram | ntfy + SMS + Email |
 | **Billing** | Free | Subscription plans (Personal & Team) |
 | **Wallet sync** | Fixed interval | Tier-based (faster sync on higher plans) |
 
@@ -216,6 +225,8 @@ See [CLAUDE.md](CLAUDE.md) for comprehensive documentation including:
 - Architecture details
 
 See [JSON webhook notifications](docs/webhooks.md) for the self-hosted webhook contract and deployment guidance.
+
+See [Telegram Bot notifications](docs/telegram.md) for bot token setup and destination rules.
 
 ## License
 

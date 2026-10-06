@@ -2,6 +2,7 @@
   "common": {
     "loading": "Indlæser...",
     "save": "Gem",
+    "saved": "Gemt",
     "copy": "Kopiér",
     "saving": "Gemmer...",
     "cancel": "Annuller",
@@ -94,14 +95,14 @@
     "hero": {
       "eyebrow": "Privat Bitcoin-overvågning",
       "title": "Få besked, når dine bitcoin flytter sig.",
-      "description": "Canary kører på din Bitcoin-node og advarer dig gennem de kanaler, du vælger. Den overvåger wallet-aktivitet uden nogensinde at behøve dine private nøgler.",
+      "description": "Canary advarer dig, når dine bitcoin flytter sig, uden nogensinde at behøve dine private nøgler. Selvhosting er Bitcoin-vejen. Brug Canary Cloud, hvis du ikke har en node, eller ikke vil drive den selv.",
       "install": "Installér Canary",
-      "demo": "Prøv demoen",
-      "cloudLink": "Kører du ikke en node? Udforsk Canary Cloud og kompromiserne for privatlivet."
+      "cloud": "Brug Canary Cloud",
+      "demo": "Prøv demoen"
     },
     "install": {
       "title": "Installér på din node",
-      "description": "Canary er gratis at hoste selv. Vælg din nodeplatform, eller brug kildekoden til manuel opsætning.",
+      "description": "Canary er gratis at hoste selv. Vælg din nodeplatform, brug Canary Cloud, eller sæt det op fra kildekoden.",
       "options": {
         "umbrel": {
           "description": "Installér fra Umbrel App Store"
@@ -112,6 +113,10 @@
         "mynode": {
           "description": "Tilgængelig i myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "Ingen node? Få e-mail- og SMS-advarsler"
       },
       "manual": "Se kildekode og vejledning til manuel opsætning på GitHub"
     },
@@ -132,8 +137,8 @@
           "description": "Brug ntfy, Nostr eller webhooks efter din opsætning og dine privatlivsbehov."
         },
         "cloud": {
-          "title": "Cloud er valgfrit",
-          "description": "Der findes et hostet abonnement til dem uden en node, med andre kompromiser for privatlivet."
+          "title": "Ingen node påkrævet",
+          "description": "Canary Cloud er til dem, der ikke kører en node, eller ikke vil drive Canary selv."
         }
       }
     },
@@ -144,11 +149,11 @@
       "steps": {
         "install": {
           "title": "Installér Canary",
-          "description": "Tilføj Canary fra din nodeplatforms markedsplads, eller følg den manuelle opsætning med tilgængelig kildekode."
+          "description": "Tilføj Canary fra din nodeplatforms markedsplads, eller følg den manuelle opsætning med tilgængelig kildekode. Brug Canary Cloud, hvis du ikke installerer på en node."
         },
         "wallet": {
           "title": "Tilføj wallet-data med læseadgang",
-          "description": "Angiv en descriptor, XPUB eller en Bitcoin-adresse. Indtast aldrig seed phrase eller privat nøgle."
+          "description": "Angiv en descriptor, XPUB eller en Bitcoin-adresse. Både single-sig- og multisig-wallets understøttes. Indtast aldrig seed phrase eller privat nøgle."
         },
         "notifications": {
           "title": "Vælg notifikationer",
@@ -158,7 +163,7 @@
     },
     "features": {
       "title": "Fokuseret overvågning af bitcoin, du holder",
-      "description": "Nyttige advarsler uden at give Canary mulighed for at flytte midler.",
+      "description": "Nyttige advarsler for både single-sig- og multisig-wallets, uden at give Canary mulighed for at flytte midler.",
       "items": {
         "activity": {
           "title": "Transaktionsaktivitet",
@@ -198,10 +203,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Hostet alternativ",
-      "title": "Canary Cloud, hvis du ikke kører en node",
-      "description": "Brug det hostede abonnement efter at have vurderet, hvordan wallet-data kan knyttes til din Canary-konto og betalingsidentitet.",
-      "action": "Udforsk Canary Cloud"
+      "eyebrow": "Hostet mulighed",
+      "title": "Har du ikke en node, eller vil du helst ikke køre Canary selv?",
+      "description": "Canary Cloud kører den samme overvågning med læseadgang for dig, med e-mail- og SMS-advarsler, som ikke er tilgængelige ved selvhosting.",
+      "action": "Brug Canary Cloud",
+      "features": {
+        "email": "E-mailadvarsler",
+        "sms": "SMS-advarsler",
+        "noNode": "Ingen node at drive"
+      }
     },
     "faq": {
       "title": "Ofte stillede spørgsmål",
@@ -212,7 +222,7 @@
         },
         "privateKeys": {
           "question": "Behøver Canary mine private nøgler?",
-          "answer": "Nej. Canary bruger descriptors, XPUB’er eller adresser til overvågning med læseadgang. Den kan ikke signere transaktioner eller bruge midler."
+          "answer": "Nej. Canary bruger descriptors, XPUB’er eller adresser til overvågning med læseadgang af både single-sig- og multisig-wallets. Den kan ikke signere transaktioner eller bruge midler."
         },
         "nodes": {
           "question": "Hvilke nodeplatforme understøttes?",
@@ -220,7 +230,7 @@
         },
         "methods": {
           "question": "Hvordan kan Canary give mig besked?",
-          "answer": "Selvhostet Canary understøtter ntfy, Nostr og webhooks. Tilgængeligheden kan afhænge af konfigurationen."
+          "answer": "Selvhostet Canary understøtter ntfy, Nostr og webhooks. Canary Cloud tilføjer e-mail og SMS, som ikke er tilgængelige ved selvhosting, og understøtter også ntfy."
         },
         "privacy": {
           "question": "Er notifikationer helt private?",
@@ -228,14 +238,15 @@
         },
         "cloud": {
           "question": "Hvordan er Canary Cloud anderledes?",
-          "answer": "Cloud er en betalt, hostet tjeneste. Den gemmer de wallet-data med læseadgang, du leverer, og kan knytte dem til konto- og betalingsidentitet, men modtager aldrig private nøgler og kan ikke bruge midler."
+          "answer": "Cloud er en betalt, hostet tjeneste til dem, der ikke har en node eller ikke vil køre Canary selv. Den inkluderer e-mail- og SMS-advarsler, gemmer de wallet-data med læseadgang, du leverer, og kan knytte dem til konto- og betalingsidentitet, men modtager aldrig private nøgler og kan ikke bruge midler."
         }
       }
     },
     "final": {
       "title": "Sæt en kanariefugl på dine bitcoin.",
-      "description": "Installér på din node, udforsk den hostede demo, eller støt den fortsatte udvikling.",
+      "description": "Host selv på din node, eller brug Canary Cloud, hvis du ikke vil drive den selv.",
       "install": "Installér Canary",
+      "cloud": "Brug Canary Cloud",
       "demo": "Prøv demoen",
       "donate": "Donér"
     },
@@ -254,7 +265,8 @@
       "noAccount": "Har du ikke en konto? Tilmeld dig",
       "forgotPassword": "Glemt din adgangskode?",
       "devMode": "Udviklertilstand",
-      "loginFailed": "Login mislykkedes"
+      "loginFailed": "Login mislykkedes",
+      "authenticatorCode": "Godkendelseskode"
     },
     "signUp": {
       "title": "Start din 30-dages gratis prøveperiode",
@@ -421,7 +433,7 @@
       },
       "test": {
         "title": "Testnotifikation",
-        "description": "Send en testnotifikation for at bekræfte, at din ntfy-opsætning fungerer.",
+        "description": "Send en forbindelsestest for at tjekke, at denne ntfy-destination kan nås.",
         "topicLabel": "Emne",
         "topicPlaceholder": "test-emne",
         "send": "Send test",
@@ -455,7 +467,7 @@
     },
     "nostr": {
       "title": "Nostr-DM'er",
-      "description": "Send krypterede Nostr-direkte beskeder fra denne self-hostede Canary-instans",
+      "description": "Send krypterede Nostr-direkte beskeder fra denne self-hostede Canary-instans. For at nå .onion-indbakkerelæer skal du køre system-Tor og sætte CANARY_NOSTR_SOCKS_PROXY (typisk 127.0.0.1:9050).",
       "senderLabel": "Canarys afsender-npub",
       "loading": "Indlæser afsendernøgle...",
       "loadFailed": "Kunne ikke indlæse Nostr-indstillinger",
@@ -481,11 +493,32 @@
         "recipientLabel": "Testmodtager",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr-modtager er påkrævet",
+        "description": "Send en forbindelsestest for at tjekke, at denne Nostr-modtager kan modtage en DM.",
         "send": "Send test",
         "sending": "Sender...",
         "success": "Nostr-test-DM sendt!",
         "successWithMode": "Nostr-test-DM sendt med {mode}.",
         "error": "Kunne ikke sende Nostr-test-DM"
+      }
+    },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Send advarsler via en Telegram-bot på denne self-hostede Canary-instansen",
+      "help": "Opret en bot med @BotFather, indsæt tokenet her, og send derefter en besked til boten. Tilføj et mål med et numerisk chat-ID eller et offentligt @brugernavn.",
+      "tokenLabel": "Bot-token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Fjern gemt token",
+      "loadFailed": "Kunne ikke indlæse Telegram-indstillinger",
+      "saveFailed": "Kunne ikke gemme Telegram-indstillinger",
+      "test": {
+        "chatIdLabel": "Test-chat-ID",
+        "chatIdPlaceholder": "123456789 eller @brugernavn",
+        "description": "Send en forbindelsestest, efter du har gemt et bot-token.",
+        "send": "Send test",
+        "sending": "Sender...",
+        "success": "Telegram-testbesked sendt!",
+        "error": "Kunne ikke sende Telegram-testbesked: {detail}",
+        "unknownError": "Ukendt fejl"
       }
     },
     "notifications": {
@@ -561,7 +594,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Indtast din wallets output descriptor eller XPUB. Vi registrerer automatisk script-typen.",
+      "descriptorHint": "Både single-sig- og multisig-descriptors understøttes. Vi registrerer script-typen automatisk.",
       "advancedSettings": "Avancerede indstillinger",
       "scriptType": {
         "label": "Script-type",
@@ -604,16 +637,16 @@
         "scriptTypeRequired": "Script-type er påkrævet for nye XPUB-wallets"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
+        "keysStaySafe": "Canary Wallet har kun brug for din output descriptor, XPUB eller adresse for at overvåge single-sig- og multisig-wallets. Dine private nøgler forbliver sikre i din wallet.",
         "trySampleWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary Wallet fungerer.",
         "sampleWallets": {
           "bacon": "Brug Bacon Wallet",
           "satoshi-genesis": "Brug Satoshi Genesis-adresse"
         },
-        "guidesPrompt": "Er du i tvivl om, hvordan du finder output descriptors eller XPUB'er? Følg vores vejledninger nedenfor:",
+        "guidesPrompt": "Er du i tvivl om, hvordan du finder output descriptors eller XPUB'er? Både single-sig- og multisig-wallets understøttes. Følg vores vejledninger nedenfor:",
         "exportSteps": "Følg disse trin for at eksportere din descriptor fra {walletName}",
         "pasteXpub": "Indsæt din XPUB nedenfor.",
-        "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor.",
+        "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor. Multisig-wallets bruger en descriptor.",
         "samplePrefilled": "Vi har udfyldt {name} eksempel-wallet for dig. Klik blot på Tilføj Wallet for at fortsætte.",
         "enterDetails": "Indtast detaljer",
         "walletType": {
@@ -623,12 +656,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Desktop-wallet til Bitcoin med fuld descriptor-understøttelse",
+          "description": "Desktop-wallet til Bitcoin med fuld descriptor-understøttelse, herunder multisig",
           "steps": [
             "Åbn din wallet i Sparrow",
             "Gå til fanen Indstillinger",
             "Klik på \"Show\" ud for Output Descriptor",
-            "Kopier hele descriptor-strengen (starter med wpkh, wsh eller tr)"
+            "Kopier hele descriptor-strengen (starter med wpkh, wsh eller tr). Multisig-wallets starter som regel med wsh."
           ]
         },
         "bluewallet": {
@@ -698,6 +731,10 @@
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
       "walletDetails": "Tegnebogsdetaljer",
+      "labels": "Etiketter",
+      "labelsHint": "Eksporter eller importer en BIP-329-etiketfil, så andre tegnebøger kan beholde de samme navne.",
+      "exportLabels": "Eksporter etiketter",
+      "importLabels": "Importer etiketter",
       "descriptorLabel": "Output Descriptor",
       "addressLabel": "Adresse",
       "scriptType": "Scripttype",
@@ -777,15 +814,18 @@
       "namePlaceholder": "Kontaktnavn",
       "methodTitle": "Notifikationsmetoder",
       "providers": {
-        "ntfy": "ntfy.sh Notifikationer",
+        "ntfy": "ntfy Notifikationer",
         "twilio": "SMS Notifikationer",
         "email": "E-mail Notifikationer",
         "nostr": "Nostr DM",
-        "webhook": "JSON-webhook"
+        "webhook": "JSON-webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfy-emne",
-        "topicHint": "Abonner på dette emne på {server} for at modtage notifikationer",
+        "topicHint": "Indtast kun emnenavnet, ikke en URL. Notifikationer går til {server}. Skift server under Indstillinger.",
+        "topicPrivacyGenerated": "Du kan ændre dette emne. Vi har genereret et svært at gætte navn, så dine notifikationer forbliver private. Vælger du dit eget, så gør det også svært at gætte.",
+        "topicPrivacyCustom": "Du kan ændre dette emne. Vælg et navn, der er svært at gætte, så dine notifikationer forbliver private.",
         "localServer": "lokal ntfy"
       },
       "sms": {
@@ -800,10 +840,10 @@
       "webhook": {
         "urlLabel": "Webhook-URL",
         "urlPlaceholder": "http://modtager.local:8080/canary?token=hemmelig",
-        "urlHint": "Canary sender JSON til denne URL. Stier og forespørgsler kan indeholde hemmeligheder og gemmes i fuld længde.",
+        "urlHint": "Canary sender JSON til denne URL. Til ntfy-push skal du vælge ntfy og indtaste et emnenavn. Stier og forespørgsler kan indeholde hemmeligheder og gemmes i fuld længde.",
         "test": "Test",
         "testing": "Tester...",
-        "testSuccess": "Test-webhook blev leveret.",
+        "testSuccess": "Test-webhook blev leveret. Dette tjekker, at URL’en kan nås.",
         "testError": "Testen mislykkedes: {detail}",
         "unknownError": "Ukendt fejl",
         "invalidUrl": "Indtast en absolut HTTP- eller HTTPS-URL uden brugeroplysninger eller fragment."
@@ -812,6 +852,17 @@
         "recipientLabel": "Nostr-modtager",
         "recipientPlaceholder": "npub1... eller offentlig nøgle i hex",
         "recipientHint": "Indtast kontaktens npub eller offentlige nøgle på 64 tegn. NIP-17-levering kræver, at kontakten har en kind 10050 DM-indbakke-relæliste. Indtast aldrig en privat nsec-nøgle."
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram-chat-ID",
+        "chatIdPlaceholder": "123456789 eller @brugernavn",
+        "chatIdHint": "Brug det numeriske chat-ID (inklusive negative gruppe-ID’er) eller et offentligt @brugernavn. Send først en besked til botten, så den kan levere til en privat chat.",
+        "test": "Test",
+        "testing": "Tester...",
+        "testSuccess": "Test-Telegram-besked blev leveret. Dette tjekker, at botten kan nå denne chat.",
+        "testError": "Testen mislykkedes: {detail}",
+        "unknownError": "Ukendt fejl",
+        "invalidChatId": "Indtast et numerisk Telegram-chat-ID eller et @brugernavn, der starter med et bogstav (5–32 tegn)."
       }
     },
     "edit": {
@@ -854,7 +905,8 @@
       "phoneRequired": "Telefonnummer er påkrævet",
       "emailRequired": "E-mailadresse er påkrævet",
       "nostrRecipientRequired": "Nostr-modtager er påkrævet",
-      "webhookUrlRequired": "Webhook-URL er påkrævet"
+      "webhookUrlRequired": "Webhook-URL er påkrævet",
+      "telegramChatIdRequired": "Telegram-chat-ID er påkrævet"
     },
     "wizard": {
       "nameStep": "Kontaktnavn",
@@ -984,7 +1036,12 @@
     "walletLabel": "Wallet: {name}",
     "loadOlder": "Indlæs ældre",
     "expandDetails": "Udvid transaktionsdetaljer",
-    "collapseDetails": "Skjul transaktionsdetaljer"
+    "collapseDetails": "Skjul transaktionsdetaljer",
+    "label": "Etiket",
+    "labelPlaceholder": "Tilføj en etiket",
+    "exportLabels": "Eksporter etiketter",
+    "importLabels": "Importer etiketter",
+    "labelActionFailed": "Kunne ikke opdatere transaktionsetiketter. Prøv igen."
   },
   "billing": {
     "title": "Abonnement",
@@ -1236,12 +1293,29 @@
       "nostr_send_timeout": "Nostr-DM-sendning fik timeout. Tjek modtagerens relæopsætning, og prøv igen.",
       "nostr_no_dm_relays": "Modtageren har ikke aktiveret moderne NIP-17-Nostr-DM'er. Prøv Auto eller ældre NIP-04-tilstand.",
       "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
-      "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen."
+      "nostr_auth_failed": "Et Nostr-indbakkerelæ afviste godkendelse. Tjek, at modtagerens DM-relæ-URL matcher relæets oplyste adresse.",
+      "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
+      "nostr_onion_socks_required": "Modtagerens Nostr-indbakke bruger .onion-relæer. Sæt CANARY_NOSTR_SOCKS_PROXY til en lokal Tor SOCKS-port, typisk 127.0.0.1:9050.",
+      "admin_mfa_required": "Indtast din godkendelseskode for at logge ind.",
+      "admin_mfa_invalid": "Godkendelsen mislykkedes. Prøv en ny kode, eller kontakt driftsansvarlige.",
+      "admin_mfa_rate_limited": "For mange forsøg. Prøv igen om fem minutter.",
+      "admin_reauthentication_required": "Log ind igen med adgangskode og godkendelseskode.",
+      "admin_wallets_unsupported": "Cloud-administratorer kan ikke tilføje tegnebøger. Brug supportadgang til at se en kundekonto.",
+      "support_target_not_found": "Ingen kunde matcher den e-mail.",
+      "support_target_invalid": "Supportadgang gælder kun kundekonti.",
+      "support_reason_required": "Beskriv hvorfor du har brug for adgangen.",
+      "support_reason_too_long": "Årsagen må højst være 280 tegn.",
+      "support_access_rate_limited": "For mange opslag. Prøv igen om et par minutter.",
+      "invalid_telegram_chat_id": "Ugyldigt Telegram-chat-ID. Indtast et numerisk chat-ID eller et @brugernavn.",
+      "telegram_not_configured": "Telegram-notifikationer er ikke konfigureret på denne server.",
+      "telegram_test_self_hosted_only": "Telegram-testbeskeder er kun tilgængelige i self-hosted tilstand.",
+      "telegram_self_hosted_only": "Telegram-notifikationer er kun tilgængelige i self-hosted tilstand."
     }
   },
   "footer": {
     "logoAlt": "Canary Wallet Logo",
     "appName": "Canary Wallet",
+    "version": "Version {version}",
     "blockInfo": "Blok {height}",
     "donations": "Donationer"
   },
@@ -1351,7 +1425,8 @@
       "sendTest": "Send prøve",
       "testing": "Sender test...",
       "testSent": "Test sendt",
-      "testFailed": "Testmeddelelsen kunne ikke sendes."
+      "testFailed": "Testmeddelelsen kunne ikke sendes.",
+      "connectivityHint": "Dette tjekker, at destinationen kan nås. Gem destinationen for at bekræfte underretningsindstillingerne."
     },
     "privacy": {
       "label": "Indholdsbeskyttelse",
@@ -1515,8 +1590,16 @@
       "errors": {
         "invalidBtc": "Indtast et gyldigt BTC-beløb",
         "invalidFiat": "Indtast et gyldigt fiat-beløb",
-        "validationFailed": "Saldoadvarslen kunne ikke valideres"
-      }
+        "validationFailed": "Saldoadvarslen kunne ikke valideres",
+        "invalidSats": "Angiv et helt antal satoshi",
+        "balanceUnavailable": "Aktuel saldo er utilgængelig",
+        "fiatUnavailable": "Der er ingen fiat-værdi for den aktuelle saldo"
+      },
+      "useCurrent": "Brug aktuel saldo",
+      "currentLabel": "Aktuel saldo",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Advarsler bruger denne total, inklusive ubekræftede midler.",
+      "currentUnavailable": "Aktuel saldo er utilgængelig. Vent til tegnebogen er synkroniseret, og prøv igen."
     },
     "thresholdTypes": {
       "above": "Over",
@@ -1549,7 +1632,7 @@
         "delivery": {
           "short": "Levering",
           "title": "Hvor skal advarsler gå hen?",
-          "description": "Navngiv denne destination, og vælg én leveringsmetode. Bekræftelsen forbliver her, så du ved, at destinationen fungerer, før du fortsætter."
+          "description": "Giv destinationen et navn, og vælg én leveringsmetode. Send en forbindelsestest her, så du ved, at destinationen kan nås, før du fortsætter."
         },
         "alerts": {
           "short": "Alarm timing",
@@ -1584,6 +1667,7 @@
       "inactive": "Inaktiv",
       "disabled": "Fra",
       "deliveryNotice": "Destinationerne er skjult her. Rediger for at se den fulde destination.",
+      "testHint": "Testbeskeden viser de gemte underretningsindstillinger for denne destination.",
       "delivery": "Levering",
       "transactionAlerts": "Transaktionsadvarsler",
       "messageContent": "Beskedens indhold",
@@ -1625,30 +1709,14 @@
     "hero": {
       "eyebrow": "Hostet Bitcoin-overvågning",
       "title": "Canary Cloud",
-      "description": "Canary Cloud driver overvågningstjenesten for dig. Gennemgå kompromiserne for privatlivet, og vælg derefter det abonnement, der passer.",
-      "selfHost": "Foretrækker du selvhosting? Installér Canary på din node"
-    },
-    "privacy": {
-      "eyebrow": "Oplysning om privatliv",
-      "title": "Hvad Canary Cloud kan få at vide",
-      "description": "En hostet overvågningstjeneste behøver wallet-data med læseadgang. Forstå hvad der gemmes, og hvordan det kan knyttes sammen, før du tilmelder dig.",
-      "items": {
-        "walletData": {
-          "title": "Wallet-oplysninger med læseadgang gemmes",
-          "description": "Canary Cloud gemmer de descriptors, XPUB’er eller adresser, du leverer."
-        },
-        "visibility": {
-          "title": "Wallet-aktivitet kan afsløres",
-          "description": "Disse oplysninger kan afsløre wallet-adresser, saldi og transaktionshistorik."
-        },
-        "identity": {
-          "title": "Wallet og betalingsidentitet kan forbindes",
-          "description": "Din Canary-konto og dit abonnement kan knytte wallet-oplysninger til din konto- og betalingsidentitet."
-        },
-        "privateKeys": {
-          "title": "Private nøgler modtages aldrig",
-          "description": "Canary Cloud modtager aldrig private nøgler og kan ikke signere transaktioner eller bruge dine midler."
-        }
+      "description": "Canary Cloud driver overvågningstjenesten for dig, hvis du ikke har en node, eller ikke vil køre Canary selv. Få e-mail- og SMS-advarsler plus ntfy-push. Den behøver aldrig dine private nøgler.",
+      "signUp": "Start gratis prøveperiode",
+      "demo": "Prøv demoen",
+      "selfHost": "Foretrækker du selvhosting? Installér Canary på din node",
+      "features": {
+        "email": "E-mailnotifikationer",
+        "sms": "SMS-notifikationer",
+        "noNode": "Ingen node at drive"
       }
     },
     "pricing": {
@@ -1665,6 +1733,112 @@
     },
     "footer": {
       "selfHost": "Host Canary selv i stedet"
+    },
+    "faq": {
+      "title": "Spørgsmål om privatliv",
+      "description": "Hostet overvågning har brug for wallet-data med læseadgang for at virke. Dette er de vigtige detaljer.",
+      "items": {
+        "walletData": {
+          "question": "Hvilke wallet-data gemmer Canary Cloud?",
+          "answer": "Canary Cloud gemmer de descriptors, XPUB’er eller adresser, du leverer, herunder single-sig- og multisig-wallets."
+        },
+        "visibility": {
+          "question": "Kan Canary Cloud se wallet-aktivitet?",
+          "answer": "Ja. Den information med læseadgang kan afsløre wallet-adresser, saldi og transaktionshistorik."
+        },
+        "identity": {
+          "question": "Er wallet-data knyttet til min konto?",
+          "answer": "Din Canary-konto og dit abonnement kan knytte wallet-information til konto- og betalingsidentitet."
+        },
+        "privateKeys": {
+          "question": "Får Canary Cloud mine private nøgler?",
+          "answer": "Nej. Canary Cloud modtager aldrig private nøgler og kan ikke signere transaktioner eller bruge dine midler."
+        }
+      }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Din egen Bitcoin-node. Hostet for dig.",
+    "description": "En dedikeret Canary-instans og fuld Bitcoin-node på din egen hostingkonto med personlig opstartshjælp og løbende support til vedligeholdelse og opgraderinger.",
+    "price": "Fra {price}/måned",
+    "terms": "Hosting inkluderet. Engangsopsætning prissættes særskilt. Eventuelle skatter og afgifter tillægges.",
+    "availability": "Tilgængelig efter aftale. Vi aftaler opsætning, adgangskontrol og vedligeholdelse før aktivering.",
+    "contact": "Kontakt os",
+    "learnMore": "Udforsk Canary Private",
+    "audience": "Til enkeltpersoner med betydelige midler i kold opbevaring, familieforvaltere og små Bitcoin-reserver i virksomheder.",
+    "benefitsTitle": "En opsætning tilpasset dig",
+    "benefits": {
+      "monitoring": {
+        "title": "Dedikeret overvågning",
+        "description": "Den foreslåede opsætning kører Canary og Bitcoin-backenden sammen uden at forespørge Canarys delte Electrum-tjeneste."
+      },
+      "control": {
+        "title": "Kunden har kontrollen",
+        "description": "Du ejer hostingkontoen. Vi aftaler adgang og opgraderinger før opsætning."
+      },
+      "service": {
+        "title": "Personlig service",
+        "description": "Personlig opstartshjælp og løbende support med omfanget bekræftet i dit tilbud."
+      },
+      "watchOnly": {
+        "title": "Kun overvågning",
+        "description": "Canary overvåger dine wallets uden at behøve seed-fraser eller private nøgler."
+      }
+    },
+    "stepsTitle": "Sådan fungerer det",
+    "steps": {
+      "needs": {
+        "title": "Fortæl os, hvad du har brug for",
+        "description": "Beskriv dine overvågningsbehov og den hjælp, du søger."
+      },
+      "quote": {
+        "title": "Aftal opsætning og tilbud",
+        "description": "Sammen afklarer vi hosting, adgangskontrol, vedligeholdelse og pris."
+      },
+      "setup": {
+        "title": "Opsæt din instans",
+        "description": "Når vilkårene er aftalt, hjælper vi dig med at få din dedikerede instans i gang."
+      }
+    },
+    "faqTitle": "Ofte stillede spørgsmål",
+    "faq": {
+      "cloud": {
+        "question": "Hvordan adskiller Canary Private sig fra Cloud?",
+        "answer": "Cloud tilbyder administreret overvågning på delt infrastruktur. Canary Private er en dedikeret Canary-instans og fuld Bitcoin-node på din egen hostingkonto med personlig opstartshjælp og support aftalt på forhånd."
+      },
+      "privacy": {
+        "question": "Hvem ejer hostingkontoen, og hvad betyder det for privatlivet?",
+        "answer": "Du ejer hostingkontoen. Den foreslåede opsætning bruger sin egen Bitcoin-backend i stedet for Canarys delte Electrum-tjeneste. Hosting- og notifikationsudbydere er fortsat en del af tillidsmodellen, og kontoejerskab fjerner ikke operatøradgang aftalt til opsætning og vedligeholdelse."
+      },
+      "maintenance": {
+        "question": "Hvordan håndteres vedligeholdelse og opgraderinger?",
+        "answer": "Vi aftaler adgangskontrol, ansvar for vedligeholdelse, opgraderinger og omfanget af løbende support før aktivering. Dit tilbud bekræfter, hvad der er inkluderet."
+      },
+      "pricing": {
+        "question": "Hvad koster det, og hvornår er det tilgængeligt?",
+        "answer": "Canary Private er tilgængelig efter aftale fra {price}/måned med hosting inkluderet. Et engangsgebyr for opsætning prissættes særskilt, og eventuelle skatter og afgifter tillægges. Vi bekræfter omfang, endelig pris og tilgængelighed før aktivering."
+      }
+    },
+    "form": {
+      "title": "Forespørg om Canary Private",
+      "description": "Fortæl kort om dine overvågningsbehov. Medtag ikke walletoplysninger, saldi, seed-fraser eller private nøgler.",
+      "placeholder": "Beskriv kort dine overvågningsbehov og den support, du søger.",
+      "success": "Tak for din forespørgsel. Vi har modtaget din besked og kontakter dig."
+    }
+  },
+  "supportPage": {
+    "title": "Supportadgang",
+    "description": "Slå én kunde op ad gangen. Adgangen udløber efter 15 minutter og logges.",
+    "emailLabel": "Kundens e-mail",
+    "reasonLabel": "Årsag",
+    "reasonPlaceholder": "Hvorfor du skal se denne konto",
+    "submit": "Åbn konto",
+    "endAccess": "Afslut adgang",
+    "activeTitle": "Viser {email}",
+    "expires": "Adgangen slutter {time}",
+    "empty": "Denne kunde har ingen tegnebøger.",
+    "readOnly": "Skrivebeskyttet"
   }
 }

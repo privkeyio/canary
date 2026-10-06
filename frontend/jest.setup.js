@@ -4,6 +4,7 @@ import '@testing-library/jest-dom'
 // Tests can override these as needed
 process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
 process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000'
+process.env.NEXT_PUBLIC_APP_VERSION = '1.6.4'
 
 // Mock ResizeObserver
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
@@ -16,7 +17,7 @@ if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: jest.fn().mockImplementation((query) => ({
-      matches: false,
+      matches: String(query).includes('prefers-reduced-motion'),
       media: query,
       onchange: null,
       addEventListener: jest.fn(),
@@ -26,6 +27,10 @@ if (typeof window !== 'undefined') {
       dispatchEvent: jest.fn(),
     })),
   })
+}
+
+if (typeof HTMLElement !== 'undefined') {
+  HTMLElement.prototype.getAnimations = () => []
 }
 
 // Mock next-intl with actual translations

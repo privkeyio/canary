@@ -5,6 +5,22 @@ use resend_rs::types::{CreateContactOptions, CreateEmailBaseOptions};
 use resend_rs::Resend;
 use rust_i18n::t;
 
+// SDK errors may contain response bodies, recipient details or request URLs.
+// Do not retain them as an anyhow source: callers also render debug/error chains.
+fn safe_provider_error(error: resend_rs::Error) -> anyhow::Error {
+    match error {
+        resend_rs::Error::Resend(response) => {
+            anyhow!(
+                "Email provider rejected request (HTTP {})",
+                response.status_code
+            )
+        }
+        resend_rs::Error::Http(_) => anyhow!("Email provider transport failed"),
+        resend_rs::Error::Parse(_) => anyhow!("Email provider returned an invalid response"),
+        _ => anyhow!("Email provider request failed"),
+    }
+}
+
 /// Escape HTML special characters to prevent XSS in email content
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -24,6 +40,9 @@ pub struct EmailConfig {
 
 impl EmailConfig {
     pub fn from_env() -> Result<Self> {
+        if crate::config::AppConfig::restore_drill_enabled() {
+            return Err(anyhow!("Email is disabled during restore drills"));
+        }
         let resend_api_key = std::env::var("RESEND_API_KEY")
             .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
         let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
@@ -806,7 +825,7 @@ Your verification code is: {otp_code}
             .send(email)
             .await
             .map(|_| ())
-            .map_err(|e| anyhow!("Resend API error: {}", e))
+            .map_err(safe_provider_error)
     }
 
     /// Send contact form submission to admin
@@ -906,14 +925,11 @@ This message was sent via the Canary Wallet contact form
 
         match self.resend.contacts.create(contact).await {
             Ok(_) => {
-                println!("Added {} to marketing audience", email);
+                tracing::info!("Marketing audience enrollment completed");
                 Ok(())
             }
-            Err(e) => {
-                println!(
-                    "Warning: Failed to add {} to marketing audience: {}",
-                    email, e
-                );
+            Err(_) => {
+                tracing::warn!("Marketing audience enrollment failed");
                 Ok(())
             }
         }
@@ -941,7 +957,7 @@ This message was sent via the Canary Wallet contact form
         // Send email
         match self.resend.emails.send(email).await {
             Ok(_) => Ok(()),
-            Err(e) => Err(anyhow!("Resend API error: {}", e)),
+            Err(e) => Err(safe_provider_error(e)),
         }
     }
 
@@ -983,4 +999,87 @@ pub struct BatchEmailRequest {
     pub subject: String,
     pub html_body: String,
     pub text_body: String,
+}
+
+#[cfg(test)]
+mod privacy_tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvGuard {
+        restore_drill: Option<String>,
+        resend_api_key: Option<String>,
+        resend_from_email: Option<String>,
+        resend_from_name: Option<String>,
+        frontend_url: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn capture() -> Self {
+            Self {
+                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
+                resend_api_key: std::env::var("RESEND_API_KEY").ok(),
+                resend_from_email: std::env::var("RESEND_FROM_EMAIL").ok(),
+                resend_from_name: std::env::var("RESEND_FROM_NAME").ok(),
+                frontend_url: std::env::var("FRONTEND_URL").ok(),
+            }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
+            restore_env_var("RESEND_API_KEY", self.resend_api_key.clone());
+            restore_env_var("RESEND_FROM_EMAIL", self.resend_from_email.clone());
+            restore_env_var("RESEND_FROM_NAME", self.resend_from_name.clone());
+            restore_env_var("FRONTEND_URL", self.frontend_url.clone());
+        }
+    }
+
+    fn restore_env_var(name: &str, value: Option<String>) {
+        if let Some(value) = value {
+            std::env::set_var(name, value);
+        } else {
+            std::env::remove_var(name);
+        }
+    }
+
+    #[test]
+    fn provider_errors_discard_untrusted_fields_and_error_chains() {
+        let sensitive = "private@example.invalid https://example.invalid/reset?token=secret";
+        let errors = [
+            resend_rs::Error::Parse(sensitive.to_string()),
+            resend_rs::Error::Resend(resend_rs::types::ErrorResponse {
+                status_code: 422,
+                name: sensitive.to_string(),
+                message: sensitive.to_string(),
+            }),
+        ];
+        for error in errors {
+            let safe = safe_provider_error(error);
+            assert_eq!(safe.chain().count(), 1);
+            let rendered = format!("{safe:#} {safe:?}");
+            assert!(!rendered.contains("private@example.invalid"));
+            assert!(!rendered.contains("token=secret"));
+        }
+    }
+
+    #[test]
+    fn from_env_is_disabled_during_restore_drill() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let env_guard = EnvGuard::capture();
+
+        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::set_var("RESEND_API_KEY", "re_present");
+        std::env::set_var("RESEND_FROM_EMAIL", "alerts@example.invalid");
+        std::env::set_var("RESEND_FROM_NAME", "Canary");
+        std::env::set_var("FRONTEND_URL", "http://127.0.0.1");
+
+        let error = EmailConfig::from_env().unwrap_err();
+        assert!(error.to_string().contains("restore drills"));
+
+        drop(env_guard);
+    }
 }

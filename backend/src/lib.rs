@@ -8,15 +8,7 @@ extern crate rust_i18n;
 // Fallback to English (US) if translation is missing
 i18n!("locales", fallback = "en-US");
 
-/// Fails the build unless `bitcoin` is the fork carrying BLAKE2b hardfork support.
-///
-/// Syncing against a Knots-backed Electrum server needs the extended 164 byte block header, which
-/// the `[patch.crates-io]` entries in Cargo.toml supply. Cargo only honours `[patch]` in the
-/// workspace being built, so dropping or mistyping an entry, or depending on this crate as a
-/// library, would otherwise resolve the stock crates and compile clean, then mis-parse headers at
-/// runtime past the activation height. `V2_SIZE` exists only on the fork.
-const _: usize = bdk_wallet::bitcoin::block::Header::V2_SIZE;
-
+pub mod admin_mfa;
 pub mod admin_notifications;
 pub mod api;
 pub mod auth;
@@ -44,12 +36,24 @@ pub mod stripe_billing;
 pub mod stripe_client_service;
 pub mod subscription;
 pub mod sync;
+pub mod telegram_provider;
+pub mod test_notification;
 pub mod tls;
 pub mod twilio_provider;
 pub mod utils;
 pub mod wallet;
 pub mod webhook_provider;
 pub mod xpub_converter;
+
+/// Fails the build unless `bitcoin` is the fork carrying extended block header support.
+///
+/// Syncing against a Knots-backed Electrum server needs the 164 byte block header, which the
+/// `[patch.crates-io]` entry in Cargo.toml supplies. Cargo only honours `[patch]` in the workspace
+/// being built, so dropping or mistyping it would otherwise resolve the stock crate and compile
+/// clean, then mis-parse headers at runtime past the activation height. `V2_SIZE` exists only on
+/// the fork. Kept below the module list so an upstream change to that list cannot conflict with it.
+const _: usize = bdk_wallet::bitcoin::block::Header::V2_SIZE;
+
 
 // Re-export commonly used types
 pub use admin_notifications::AdminNotifications;
@@ -72,8 +76,9 @@ pub use stripe_billing::{
     CheckoutSessionResponse, CustomerPortalResponse, FrontendPriceInfo, FrontendTierPricing,
     PricingInfo, StripeBilling,
 };
+pub use telegram_provider::TelegramProvider;
 pub use twilio_provider::TwilioProvider;
-pub use utils::{parse_multipath_descriptor, strip_key_origin};
+pub use utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
 pub use wallet::{WalletCreationService, WalletManager};
 pub use webhook_provider::WebhookProvider;
 pub use xpub_converter::{ScriptType, XpubConverter};

@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy manifests
 COPY Cargo.toml Cargo.lock ./
+COPY vendor ./vendor
 
 # Copy source code
 COPY src ./src
@@ -30,13 +31,16 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the Rust binary from builder stage
 COPY --from=rust-builder /app/target/release/canary /app/canary
 
 # Migrations and application artifacts remain read-only to the runtime user.
+# Force world-readable copies so a 0600 build-context file cannot skip startup.
 COPY --from=rust-builder /app/migrations /app/migrations
+RUN chmod -R a+rX /app/migrations
 
 # Create a dedicated runtime user with owner-only application data.
 RUN groupadd --gid 1000 canary \

@@ -5,8 +5,8 @@ use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
-    check_resource_limit, get_user_or_error, verify_wallet_access, DatabaseErrorMessage,
-    ResourceLimit,
+    check_resource_limit, get_user_or_error, verify_wallet_access, verify_wallet_read_access,
+    DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{
     BalanceAlert, Contact, ProviderType, TransactionCursor, TransactionPageRequest,
@@ -16,7 +16,7 @@ use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
-use crate::utils::DescriptorError;
+use crate::utils::{compact_wallet_key_input, DescriptorError};
 use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, Query, State},
@@ -40,12 +40,24 @@ pub type StripeBillingState = Option<Arc<StripeBilling>>;
 const DEFAULT_WALLET_DETAIL_PAGE_SIZE: usize = 100;
 const MAX_WALLET_DETAIL_PAGE_SIZE: usize = 250;
 const MAX_SQL_TIMESTAMP: u64 = i64::MAX as u64;
+const MAX_BIP329_IMPORT_BYTES: usize = 1_000_000;
+const MAX_BIP329_IMPORT_RECORDS: usize = 10_000;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct WalletDetailQueryParams {
     pub cursor: Option<String>,
     pub page_size: Option<usize>,
     pub since_timestamp: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateTransactionLabelRequest {
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportBip329LabelsRequest {
+    pub content: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -75,13 +87,25 @@ pub async fn create_wallet_non_blocking(
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
     State(electrum_manager): State<ElectrumClientManagerState>,
-    Json(payload): Json<CreateWalletRequest>,
+    Json(mut payload): Json<CreateWalletRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
+    payload.descriptor = compact_wallet_key_input(&payload.descriptor);
 
     // Reject demo users from creating wallets
     if let Err(response) = require_non_demo(&user) {
         return response;
+    }
+
+    if config.is_cloud_mode() && user.is_admin {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::coded(
+                "admin_wallets_unsupported",
+                "Cloud administrators cannot add wallets. Use support access to view a customer account.",
+            )),
+        )
+            .into_response();
     }
 
     // Actively verify Electrum connectivity before allowing wallet creation
@@ -275,31 +299,19 @@ pub async fn create_wallet_non_blocking(
                                 )
                                 .await
                             {
-                                Ok(contact_id) => {
-                                    info!(
-                                        "Auto-created contact {} for user {} in wallet {}",
-                                        contact_id, user_id, wallet_checksum
-                                    );
+                                Ok(_contact_id) => {
+                                    info!("Created default wallet contact");
                                 }
-                                Err(e) => {
-                                    warn!(
-                                        "Failed to auto-create contact for user {}: {}",
-                                        user_id, e
-                                    );
+                                Err(_e) => {
+                                    warn!("Default contact creation failed");
                                 }
                             }
                         }
                         Ok(None) => {
-                            warn!(
-                                "User {} not found in database for auto-contact creation",
-                                user_id
-                            );
+                            warn!("Default contact creation skipped: user unavailable");
                         }
-                        Err(e) => {
-                            warn!(
-                                "Error getting user {} for auto-contact creation: {}",
-                                user_id, e
-                            );
+                        Err(_e) => {
+                            warn!("Default contact user lookup failed");
                         }
                     }
                 });
@@ -323,16 +335,13 @@ pub async fn create_wallet_non_blocking(
                         .unwrap_or(0);
 
                     if wallet_count == 1 {
-                        tracing::info!(
-                            "🎉 Activating trial for user {} on first wallet creation",
-                            user_record.email
-                        );
+                        tracing::info!("Activating trial on first wallet creation");
 
                         // Calculate trial end date (30 days from now)
                         let trial_ends_at = chrono::Utc::now() + chrono::Duration::days(30);
 
                         // Update user status to 'trialing' in database (NON-BLOCKING)
-                        if let Err(e) = app_services
+                        if let Err(_e) = app_services
                             .metadata_db
                             .update_user_trial_status(
                                 &user.user_id,
@@ -341,13 +350,13 @@ pub async fn create_wallet_non_blocking(
                             )
                             .await
                         {
-                            tracing::error!("Failed to update user trial status: {}", e);
+                            tracing::error!("Trial status update failed");
                         }
 
                         // If Stripe is available, create the trial subscription (NON-BLOCKING)
                         if let Some(stripe_service) = &stripe_billing {
                             // Create trial subscription for Team tier
-                            if let Err(e) = stripe_service
+                            if let Err(_e) = stripe_service
                                 .create_trial_subscription(
                                     &user_record,
                                     crate::subscription::SubscriptionTier::Team,
@@ -355,24 +364,14 @@ pub async fn create_wallet_non_blocking(
                                 )
                                 .await
                             {
-                                tracing::error!(
-                                    "Failed to create Stripe trial subscription for user {}: {}",
-                                    user_record.email,
-                                    e
-                                );
+                                tracing::error!("Trial subscription creation failed");
                                 // Don't fail wallet creation if Stripe fails, but log the error
                                 // User can still use the service with database-only trial
                             } else {
-                                tracing::info!(
-                                    "✅ Stripe trial subscription created successfully for user {}",
-                                    user_record.email
-                                );
+                                tracing::info!("Trial subscription created");
                             }
                         } else if user_record.stripe_customer_id.is_some() {
-                            tracing::warn!(
-                                "User {} has Stripe customer ID but Stripe service is not available",
-                                user_record.email
-                            );
+                            tracing::warn!("Billing service unavailable for trial creation");
                         }
                     }
                 }
@@ -571,17 +570,13 @@ pub async fn get_wallet(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // No mutex blocking! Direct access to metadata database
-    let wallet = match verify_wallet_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Raw,
-    )
-    .await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response,
-    };
+    let wallet =
+        match verify_wallet_read_access(&app_services, &user, &checksum, DatabaseErrorMessage::Raw)
+            .await
+        {
+            Ok(wallet) => wallet,
+            Err(response) => return response,
+        };
 
     (StatusCode::OK, Json(wallet)).into_response()
 }
@@ -592,10 +587,7 @@ pub async fn get_wallets_list(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // No mutex blocking! Direct access to metadata database
-    match app_services
-        .get_wallets_list_for_user(&user.user_id, user.is_admin)
-        .await
-    {
+    match app_services.get_wallets_list_for_user(&user.user_id).await {
         Ok(mut wallets_response) => {
             // Add fiat values if user has a preferred currency
             if let Ok(Some(user_record)) =
@@ -688,7 +680,7 @@ pub async fn get_wallet_detail(
     };
 
     // Get the specific wallet - no mutex blocking!
-    let wallet = match verify_wallet_access(
+    let wallet = match verify_wallet_read_access(
         &app_services,
         &user,
         &checksum,
@@ -854,7 +846,7 @@ pub async fn get_wallet_notifications(
         }
     };
 
-    let wallet = match verify_wallet_access(
+    let wallet = match verify_wallet_read_access(
         &app_services,
         &user,
         &checksum,
@@ -919,7 +911,7 @@ pub async fn get_transaction_notifications(
     Path((checksum, txid)): Path<(String, String)>,
     State(app_services): State<AppServicesState>,
 ) -> Response {
-    let wallet = match verify_wallet_access(
+    let wallet = match verify_wallet_read_access(
         &app_services,
         &user,
         &checksum,
@@ -947,11 +939,8 @@ pub async fn get_transaction_notifications(
             )
                 .into_response();
         }
-        Err(e) => {
-            warn!(
-                "Failed to load transaction {} for wallet {}: {}",
-                txid, wallet.checksum, e
-            );
+        Err(_e) => {
+            warn!("Wallet transaction lookup failed");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new("Database error")),
@@ -966,11 +955,8 @@ pub async fn get_transaction_notifications(
         .await
     {
         Ok(notifications) => (StatusCode::OK, Json(notifications)).into_response(),
-        Err(e) => {
-            warn!(
-                "Failed to load notifications for transaction {} in wallet {}: {}",
-                txid, wallet.checksum, e
-            );
+        Err(_e) => {
+            warn!("Wallet transaction notification lookup failed");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(
@@ -980,4 +966,265 @@ pub async fn get_transaction_notifications(
                 .into_response()
         }
     }
+}
+
+/// Update the BIP-329 label attached to a transaction.
+pub async fn update_transaction_label(
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path((checksum, txid)): Path<(String, String)>,
+    State(app_services): State<AppServicesState>,
+    Json(payload): Json<UpdateTransactionLabelRequest>,
+) -> Response {
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+    let label = payload.label.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        (!trimmed.is_empty()).then_some(trimmed)
+    });
+    if label
+        .as_ref()
+        .is_some_and(|value| value.chars().count() > 256)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "invalid_label",
+                "label must be 256 characters or fewer",
+            )),
+        )
+            .into_response();
+    }
+    match app_services
+        .metadata_db
+        .update_transaction_label(
+            &wallet.checksum,
+            &txid.to_ascii_lowercase(),
+            label.as_deref(),
+        )
+        .await
+    {
+        Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "label": label }))).into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse::coded(
+                "transaction_not_found",
+                "Transaction not found",
+            )),
+        )
+            .into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Database error: {error}"))),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn export_bip329_labels(
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path(checksum): Path<String>,
+    State(app_services): State<AppServicesState>,
+) -> Response {
+    let wallet = match verify_wallet_read_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+    match app_services
+        .metadata_db
+        .get_transaction_labels(&wallet.checksum)
+        .await
+    {
+        Ok(labels) => {
+            let mut lines = Vec::with_capacity(labels.len());
+            for entry in labels {
+                match serde_json::to_string(&entry) {
+                    Ok(line) => lines.push(line),
+                    Err(error) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse::new(format!(
+                                "Failed to serialize labels: {error}"
+                            ))),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            let body = lines.join("\n");
+            (StatusCode::OK, Json(serde_json::json!({ "content": body }))).into_response()
+        }
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Database error: {error}"))),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn import_bip329_labels(
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path(checksum): Path<String>,
+    State(app_services): State<AppServicesState>,
+    Json(payload): Json<ImportBip329LabelsRequest>,
+) -> Response {
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+    if payload.content.len() > MAX_BIP329_IMPORT_BYTES {
+        return (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(ErrorResponse::coded(
+                "invalid_bip329",
+                "BIP-329 import is limited to 1 MB",
+            )),
+        )
+            .into_response();
+    }
+    let mut labels = Vec::new();
+    let mut skipped = 0usize;
+    let mut transaction_records = 0usize;
+    for (line_index, line) in payload.content.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        if transaction_records + skipped >= MAX_BIP329_IMPORT_RECORDS {
+            return (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                Json(ErrorResponse::coded(
+                    "invalid_bip329",
+                    "BIP-329 import is limited to 10,000 records",
+                )),
+            )
+                .into_response();
+        }
+        let value: serde_json::Value = match serde_json::from_str(line) {
+            Ok(value) => value,
+            Err(error) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "invalid_bip329",
+                        format!("Invalid BIP-329 line {}: {error}", line_index + 1),
+                    )),
+                )
+                    .into_response()
+            }
+        };
+        // Canary stores transaction labels; other BIP-329 record types remain untouched.
+        if value.get("type").and_then(serde_json::Value::as_str) != Some("tx") {
+            skipped += 1;
+            continue;
+        }
+        let label = match value.get("label") {
+            None => {
+                skipped += 1;
+                continue;
+            }
+            Some(serde_json::Value::String(label)) => label.trim().to_string(),
+            Some(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "invalid_bip329",
+                        format!(
+                            "Invalid transaction label record on line {}",
+                            line_index + 1
+                        ),
+                    )),
+                )
+                    .into_response()
+            }
+        };
+        transaction_records += 1;
+        let reference = match value.get("ref").and_then(serde_json::Value::as_str) {
+            Some(reference) => reference.to_string(),
+            None => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "invalid_bip329",
+                        format!(
+                            "Invalid transaction label record on line {}",
+                            line_index + 1
+                        ),
+                    )),
+                )
+                    .into_response()
+            }
+        };
+        if reference.len() != 64 || !reference.chars().all(|c| c.is_ascii_hexdigit()) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded(
+                    "invalid_bip329",
+                    "txid must be a 64-character hexadecimal transaction id",
+                )),
+            )
+                .into_response();
+        }
+        if label.chars().count() > 256 {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded(
+                    "invalid_bip329",
+                    "label must contain at most 256 characters",
+                )),
+            )
+                .into_response();
+        }
+        labels.push((
+            reference.to_ascii_lowercase(),
+            (!label.is_empty()).then_some(label),
+        ));
+    }
+    let imported = match app_services
+        .metadata_db
+        .update_transaction_labels(&wallet.checksum, &labels)
+        .await
+    {
+        Ok(count) => count,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Database error: {error}"))),
+            )
+                .into_response()
+        }
+    };
+    skipped += transaction_records.saturating_sub(imported);
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "imported": imported, "skipped": skipped })),
+    )
+        .into_response()
 }

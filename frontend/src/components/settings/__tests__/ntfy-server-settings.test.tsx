@@ -67,7 +67,9 @@ describe("NtfyServerSettings", () => {
 
     expect(screen.getByText("Push Notifications")).toBeInTheDocument()
     expect(screen.getByText("ntfy")).toBeInTheDocument()
-    expect(screen.getByAltText("ntfy logo")).toBeInTheDocument()
+    const ntfyLogo = screen.getByAltText("ntfy logo")
+    expect(ntfyLogo).toHaveClass("dark:invert")
+    expect(ntfyLogo).not.toHaveClass("invert")
     expect(screen.getByText("https://ntfy.sh")).toBeInTheDocument()
     expect(screen.getByText("Umbrel")).toBeInTheDocument()
     expect(screen.getByText("Custom URL")).toBeInTheDocument()
@@ -253,6 +255,12 @@ describe("NtfyServerSettings", () => {
     )
 
     expect(screen.getByText("Authentication")).toBeInTheDocument()
+  })
+
+  it("shows a saved checkmark on the ntfy save button after a successful save", () => {
+    render(<NtfyServerSettings {...defaultProps} ntfySettingsSuccess={true} />)
+
+    expect(screen.getByRole("button", { name: /^saved$/i })).toBeDisabled()
   })
 
   it("disables test notifications while ntfy settings are unsaved", () => {

@@ -1,19 +1,34 @@
 //! Test notification handler
 
 use crate::api::AppServicesState;
+use crate::auth::AuthUser;
 use crate::config::AppConfig;
-use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::{reject_nostr_in_cloud_mode, reject_webhook_in_cloud_mode};
+use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::handlers::helpers::{
+    reject_nostr_in_cloud_mode, reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode,
+    reject_webhook_in_cloud_mode,
+};
+use crate::metadata::{Language, ProviderType};
 use crate::models::{
-    ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
-    TestNtfyResponse, TestWebhookRequest, TestWebhookResponse, UpdateNostrSettingsRequest,
+    ErrorResponse, NostrSettingsResponse, TelegramSettingsResponse, TestNostrRequest,
+    TestNostrResponse, TestNtfyRequest, TestNtfyResponse, TestTelegramRequest,
+    TestTelegramResponse, TestWebhookRequest, TestWebhookResponse, UpdateNostrSettingsRequest,
+    UpdateTelegramSettingsRequest,
 };
 use crate::nostr_provider::{
     ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
-    parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrProvider,
+    parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrDmMode, NostrProvider,
 };
 use crate::ntfy_provider::NtfyAuth;
-use crate::outbound_target::{client_for_public_url, validate_public_url};
+use crate::telegram_provider::{
+    is_configured, set_bot_token, validate_telegram_chat_id, TelegramProvider,
+};
+use crate::test_notification::{
+    format_generic_nostr_test_message, format_generic_telegram_test_notification,
+    format_generic_test_notification, format_saved_nostr_test_message,
+    format_saved_test_notification, load_saved_test_config, SavedTestConfigError,
+    SavedTestRequestIds, TestNotificationConfig, TestNotificationCopy,
+};
 use crate::webhook_provider::{validate_webhook_url, WebhookPayload, WebhookProvider};
 use axum::{
     extract::State,
@@ -21,7 +36,6 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use rust_i18n::t;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -109,62 +123,56 @@ pub async fn send_test_ntfy_notification(
     let ntfy_auth =
         config.with_managed_ntfy_auth(ntfy_auth, &ntfy_server, user_ntfy_server_url.as_deref());
 
-    // Look up user's preferred language
-    let language = app_services
-        .metadata_db
-        .get_user_preferred_language(&user.user_id)
-        .await
-        .unwrap_or(crate::metadata::Language::English);
-    let locale = language.as_str();
-
-    // Build localized title and message
-    let title = t!("test_notification.title", locale = locale).to_string();
-    let message = t!("test_notification.message", locale = locale).to_string();
+    let language = user_preferred_language(&app_services, &user.user_id).await;
+    let copy = match resolve_test_copy(
+        &app_services,
+        &user,
+        SavedTestRequestIds {
+            wallet_checksum: payload.wallet_checksum,
+            contact_id: payload.contact_id,
+            method_id: payload.method_id,
+        },
+        ProviderType::Ntfy,
+        topic,
+        &language,
+        GenericTestCopy::Ntfy,
+    )
+    .await
+    {
+        Ok(copy) => copy,
+        Err(error) => return test_copy_error_response(error),
+    };
+    let title = copy.title;
+    let message = copy.body;
 
     // Build ntfy URL
     let ntfy_url = format!("{}/{}", ntfy_server.trim_end_matches('/'), topic);
 
-    // Build and send the HTTP request
-    let client =
-        if config.should_trust_ntfy_server_url(&ntfy_server, user_ntfy_server_url.as_deref()) {
-            reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .expect("failed to build ntfy HTTP client")
-        } else {
-            match validate_public_url(&ntfy_url).await {
-                Ok(url) => match client_for_public_url(&url).await {
-                    Ok(client) => client,
-                    Err(_) => {
-                        return (
-                            StatusCode::OK,
-                            Json(TestNtfyResponse {
-                                success: false,
-                                error: Some("ntfy server is not publicly reachable".to_string()),
-                            }),
-                        )
-                            .into_response()
-                    }
-                },
-                Err(_) => {
-                    return (
-                        StatusCode::OK,
-                        Json(TestNtfyResponse {
-                            success: false,
-                            error: Some("ntfy server is not publicly reachable".to_string()),
-                        }),
-                    )
-                        .into_response()
-                }
-            }
-        };
+    // Use the same mode policy and client construction as regular delivery.
+    let provider = config.ntfy_provider(
+        ntfy_server,
+        ntfy_auth.clone(),
+        user_ntfy_server_url.as_deref(),
+    );
+    let client = match provider.client_for_url(&ntfy_url).await {
+        Ok(client) => client,
+        Err(_) => {
+            return (
+                StatusCode::OK,
+                Json(TestNtfyResponse {
+                    success: false,
+                    error: Some("ntfy server URL is invalid or not allowed.".to_string()),
+                }),
+            )
+                .into_response();
+        }
+    };
     let mut request = client
         .post(&ntfy_url)
         .header("Content-Type", "text/plain; charset=utf-8")
         .header("Title", title)
-        .header("Priority", "default")
-        .header("Tags", "bell");
+        .header("Priority", "urgent")
+        .header("Tags", "rotating_light");
 
     // Add authentication header if configured
     match &ntfy_auth {
@@ -214,6 +222,119 @@ pub async fn send_test_ntfy_notification(
     }
 }
 
+/// Send a test Telegram Bot message when a bot token is configured (self-hosted only).
+/// Cloud mode never exposes Telegram.
+pub async fn send_test_telegram_notification(
+    AuthenticatedUser(user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<TestTelegramRequest>,
+) -> Response {
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+    if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
+        return response;
+    }
+
+    let chat_id = match validate_telegram_chat_id(&payload.chat_id) {
+        Ok(chat_id) => chat_id,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded("invalid_telegram_chat_id", error)),
+            )
+                .into_response();
+        }
+    };
+
+    let provider = TelegramProvider::with_metadata_db(
+        app_services.metadata_db.clone(),
+        "https://api.telegram.org".to_string(),
+    );
+
+    let language = user_preferred_language(&app_services, &user.user_id).await;
+    let copy = match resolve_test_copy(
+        &app_services,
+        &user,
+        SavedTestRequestIds {
+            wallet_checksum: payload.wallet_checksum,
+            contact_id: payload.contact_id,
+            method_id: payload.method_id,
+        },
+        ProviderType::Telegram,
+        &chat_id,
+        &language,
+        GenericTestCopy::Telegram,
+    )
+    .await
+    {
+        Ok(copy) => copy,
+        Err(error) => return test_copy_error_response(error),
+    };
+
+    let result = provider.send_message(&chat_id, &copy.body).await;
+    (
+        StatusCode::OK,
+        Json(TestTelegramResponse {
+            success: result.success,
+            error: result.error_message,
+        }),
+    )
+        .into_response()
+}
+
+/// Telegram bot-token Settings (self-hosted only). Never echoes the token.
+pub async fn get_telegram_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+) -> Response {
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    (
+        StatusCode::OK,
+        Json(TelegramSettingsResponse {
+            configured: is_configured(&app_services.metadata_db).await,
+        }),
+    )
+        .into_response()
+}
+
+/// Save or clear the instance Telegram bot token (self-hosted only).
+pub async fn update_telegram_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<UpdateTelegramSettingsRequest>,
+) -> Response {
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    match set_bot_token(&app_services.metadata_db, &payload.bot_token).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(TelegramSettingsResponse {
+                configured: is_configured(&app_services.metadata_db).await,
+            }),
+        )
+            .into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!(
+                "Failed to save Telegram settings: {error}"
+            ))),
+        )
+            .into_response(),
+    }
+}
+
 /// Send a versioned JSON test payload to a webhook (self-hosted mode only).
 pub async fn send_test_webhook_notification(
     AuthenticatedUser(user): AuthenticatedUser,
@@ -236,13 +357,25 @@ pub async fn send_test_webhook_notification(
         }
     };
 
-    let language = app_services
-        .metadata_db
-        .get_user_preferred_language(&user.user_id)
-        .await
-        .unwrap_or(crate::metadata::Language::English);
+    let language = user_preferred_language(&app_services, &user.user_id).await;
+    let payload_body = match resolve_webhook_payload(
+        &app_services,
+        &user,
+        SavedTestRequestIds {
+            wallet_checksum: payload.wallet_checksum,
+            contact_id: payload.contact_id,
+            method_id: payload.method_id,
+        },
+        &url,
+        &language,
+    )
+    .await
+    {
+        Ok(payload_body) => payload_body,
+        Err(error) => return test_copy_error_response(error),
+    };
     let result = WebhookProvider::new()
-        .send_payload(&url, &WebhookPayload::test(&language))
+        .send_payload(&url, &payload_body)
         .await;
 
     (
@@ -348,7 +481,7 @@ pub async fn update_nostr_settings(
 
 /// Send a test Nostr DM to a recipient public key (self-hosted mode only).
 pub async fn send_test_nostr_notification(
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<TestNostrRequest>,
@@ -367,7 +500,6 @@ pub async fn send_test_nostr_notification(
                 .into_response();
         }
     };
-    let recipient_hex = recipient.to_hex();
     let dm_mode = match payload.dm_mode {
         Some(dm_mode) => dm_mode,
         None => match get_nostr_dm_mode(&app_services.metadata_db).await {
@@ -384,12 +516,26 @@ pub async fn send_test_nostr_notification(
             }
         },
     };
+    let language = user_preferred_language(&app_services, &user.user_id).await;
+    let message = match resolve_nostr_test_message(
+        &app_services,
+        &user,
+        SavedTestRequestIds {
+            wallet_checksum: payload.wallet_checksum,
+            contact_id: payload.contact_id,
+            method_id: payload.method_id,
+        },
+        &payload.recipient,
+        &language,
+        dm_mode,
+    )
+    .await
+    {
+        Ok(message) => message,
+        Err(error) => return test_copy_error_response(error),
+    };
     let start = Instant::now();
-    tracing::info!(
-        recipient = %recipient_hex,
-        dm_mode = dm_mode.as_str(),
-        "Sending test Nostr DM"
-    );
+    tracing::info!(dm_mode = dm_mode.as_str(), "Sending test Nostr DM");
 
     let sender_keys = match ensure_nostr_sender_keys(&app_services.metadata_db).await {
         Ok(keys) => keys,
@@ -406,16 +552,16 @@ pub async fn send_test_nostr_notification(
     };
 
     let provider = NostrProvider::new(sender_keys);
-    let (result, dm_mode_used) = provider.send_test_message(recipient, dm_mode).await;
+    let (result, dm_mode_used) = provider
+        .send_test_message(recipient, dm_mode, message)
+        .await;
     let error_code = nostr_test_error_code(result.error_message.as_deref()).map(str::to_string);
 
     tracing::info!(
-        recipient = %recipient_hex,
         success = result.success,
         dm_mode = dm_mode.as_str(),
         dm_mode_used = dm_mode_used.map(|mode| mode.as_str()).unwrap_or("none"),
         error_code = error_code.as_deref().unwrap_or("none"),
-        error = result.error_message.as_deref().unwrap_or("none"),
         elapsed_ms = start.elapsed().as_millis(),
         "Test Nostr DM completed"
     );
@@ -430,4 +576,159 @@ pub async fn send_test_nostr_notification(
         }),
     )
         .into_response()
+}
+
+enum GenericTestCopy {
+    Ntfy,
+    Telegram,
+}
+
+async fn user_preferred_language(app_services: &AppServicesState, user_id: &str) -> Language {
+    app_services
+        .metadata_db
+        .get_user_preferred_language(user_id)
+        .await
+        .unwrap_or(Language::English)
+}
+
+enum TestCopyError {
+    IncompleteIds,
+    Saved(SavedTestConfigError),
+}
+
+async fn resolve_test_copy(
+    app_services: &AppServicesState,
+    user: &AuthUser,
+    ids: SavedTestRequestIds,
+    provider: ProviderType,
+    destination: &str,
+    language: &Language,
+    generic: GenericTestCopy,
+) -> Result<TestNotificationCopy, TestCopyError> {
+    match load_optional_saved_config(app_services, user, ids, provider, destination).await? {
+        Some(config) => Ok(format_saved_test_notification(&config, language)),
+        None => Ok(match generic {
+            GenericTestCopy::Ntfy => format_generic_test_notification(language),
+            GenericTestCopy::Telegram => format_generic_telegram_test_notification(language),
+        }),
+    }
+}
+
+async fn resolve_webhook_payload(
+    app_services: &AppServicesState,
+    user: &AuthUser,
+    ids: SavedTestRequestIds,
+    destination: &str,
+    language: &Language,
+) -> Result<WebhookPayload, TestCopyError> {
+    match load_optional_saved_config(app_services, user, ids, ProviderType::Webhook, destination)
+        .await?
+    {
+        Some(config) => Ok(WebhookPayload::saved_test(language, &config)),
+        None => Ok(WebhookPayload::test(language)),
+    }
+}
+
+async fn resolve_nostr_test_message(
+    app_services: &AppServicesState,
+    user: &AuthUser,
+    ids: SavedTestRequestIds,
+    destination: &str,
+    language: &Language,
+    dm_mode: NostrDmMode,
+) -> Result<String, TestCopyError> {
+    match load_optional_saved_config(app_services, user, ids, ProviderType::Nostr, destination)
+        .await?
+    {
+        Some(config) => Ok(format_saved_nostr_test_message(&config, language, dm_mode)),
+        None => Ok(format_generic_nostr_test_message(language, dm_mode)),
+    }
+}
+
+async fn load_optional_saved_config(
+    app_services: &AppServicesState,
+    user: &AuthUser,
+    ids: SavedTestRequestIds,
+    provider: ProviderType,
+    destination: &str,
+) -> Result<Option<TestNotificationConfig>, TestCopyError> {
+    let ids = ids.parse().map_err(|_| TestCopyError::IncompleteIds)?;
+    let Some(ids) = ids else {
+        return Ok(None);
+    };
+
+    load_saved_test_config(
+        &app_services.metadata_db,
+        &user.user_id,
+        user.is_admin,
+        &ids,
+        provider,
+        destination,
+    )
+    .await
+    .map(Some)
+    .map_err(TestCopyError::Saved)
+}
+
+fn test_copy_error_response(error: TestCopyError) -> Response {
+    match error {
+        TestCopyError::IncompleteIds => (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "incomplete_saved_test_ids",
+                "wallet_checksum, contact_id, and method_id are all required when testing a saved destination",
+            )),
+        )
+            .into_response(),
+        TestCopyError::Saved(error) => saved_test_config_error_response(error),
+    }
+}
+
+fn saved_test_config_error_response(error: SavedTestConfigError) -> Response {
+    let (status, code, message) = match error {
+        SavedTestConfigError::WalletNotFound => (
+            StatusCode::NOT_FOUND,
+            "wallet_not_found",
+            "Wallet not found".to_string(),
+        ),
+        SavedTestConfigError::AccessDenied => (
+            StatusCode::FORBIDDEN,
+            "access_denied",
+            "Access denied".to_string(),
+        ),
+        SavedTestConfigError::ContactNotFound => (
+            StatusCode::NOT_FOUND,
+            "contact_not_found",
+            "Contact not found".to_string(),
+        ),
+        SavedTestConfigError::MethodNotFound => (
+            StatusCode::NOT_FOUND,
+            "notification_method_not_found",
+            "Notification method not found".to_string(),
+        ),
+        SavedTestConfigError::MethodDisabled => (
+            StatusCode::BAD_REQUEST,
+            "notification_method_disabled",
+            "Notification method is disabled".to_string(),
+        ),
+        SavedTestConfigError::ProviderMismatch => (
+            StatusCode::BAD_REQUEST,
+            "notification_method_provider_mismatch",
+            "Notification method does not match this test endpoint".to_string(),
+        ),
+        SavedTestConfigError::DestinationMismatch => (
+            StatusCode::BAD_REQUEST,
+            "notification_target_mismatch",
+            "Destination does not match the saved notification method".to_string(),
+        ),
+        SavedTestConfigError::Database(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(error)),
+            )
+                .into_response();
+        }
+    };
+
+    (status, Json(ErrorResponse::coded(code, message))).into_response()
 }

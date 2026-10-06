@@ -2,6 +2,7 @@
   "common": {
     "loading": "読み込み中...",
     "save": "保存",
+    "saved": "保存済み",
     "copy": "コピー",
     "saving": "保存中...",
     "cancel": "キャンセル",
@@ -94,14 +95,14 @@
     "hero": {
       "eyebrow": "プライベートなBitcoin監視",
       "title": "ビットコインが動いたときに知る。",
-      "description": "CanaryはあなたのBitcoinノード上で動作し、選択した経路で通知します。秘密鍵を必要とせずにウォレットの動きを監視します。",
+      "description": "Canaryは、秘密鍵を必要とせずにビットコインが動いたときに通知します。セルフホストがBitcoinの本筋です。ノードがない場合や自分で運用したくない場合はCanary Cloudを利用できます。",
       "install": "Canaryをインストール",
-      "demo": "デモを試す",
-      "cloudLink": "ノードを運用していませんか？Canary Cloudとそのプライバシー上のトレードオフをご確認ください。"
+      "cloud": "Canary Cloudを使う",
+      "demo": "デモを試す"
     },
     "install": {
       "title": "ノードにインストール",
-      "description": "Canaryは無料でセルフホストできます。ノードプラットフォームを選ぶか、ソースを使って手動でセットアップしてください。",
+      "description": "Canaryは無料でセルフホストできます。ノードプラットフォームを選ぶか、Canary Cloudを使うか、ソースからセットアップしてください。",
       "options": {
         "umbrel": {
           "description": "Umbrel App Storeからインストール"
@@ -112,6 +113,10 @@
         "mynode": {
           "description": "myNode Marketplaceで利用可能"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "ノードがない場合はメールとSMSで通知"
       },
       "manual": "GitHubでソースと手動セットアップ情報を見る"
     },
@@ -132,8 +137,8 @@
           "description": "構成とプライバシー要件に応じて、ntfy、Nostr、Webhookを利用できます。"
         },
         "cloud": {
-          "title": "クラウドは任意",
-          "description": "ノードを運用しない方向けに、異なるプライバシー上のトレードオフを持つホスト型サブスクリプションがあります。"
+          "title": "ノードは不要",
+          "description": "Canary Cloudは、ノードを運用していない方や、Canaryを自分で運用したくない方向けです。"
         }
       }
     },
@@ -144,11 +149,11 @@
       "steps": {
         "install": {
           "title": "Canaryをインストール",
-          "description": "ノードプラットフォームのマーケットプレイスから追加するか、ソース公開の手動セットアップに従います。"
+          "description": "ノードプラットフォームのマーケットプレイスから追加するか、ソース公開の手動セットアップに従います。ノードにインストールしない場合はCanary Cloudを利用できます。"
         },
         "wallet": {
           "title": "監視専用ウォレット情報を追加",
-          "description": "ディスクリプタ、XPUB、または個別のBitcoinアドレスを入力します。シードフレーズや秘密鍵は絶対に入力しないでください。"
+          "description": "ディスクリプタ、XPUB、または個別のBitcoinアドレスを入力します。シングルシグとマルチシグのウォレットの両方に対応しています。シードフレーズや秘密鍵は絶対に入力しないでください。"
         },
         "notifications": {
           "title": "通知方法を選択",
@@ -158,7 +163,7 @@
     },
     "features": {
       "title": "保有するビットコインに集中した監視",
-      "description": "Canaryに資金を動かす権限を与えず、役立つ通知を受け取れます。",
+      "description": "シングルシグとマルチシグのウォレット向けの役立つ通知を、Canaryに資金を動かす権限を与えずに受け取れます。",
       "items": {
         "activity": {
           "title": "トランザクションの動き",
@@ -199,9 +204,14 @@
     },
     "cloud": {
       "eyebrow": "ホスト型の選択肢",
-      "title": "ノードを運用しない場合はCanary Cloud",
-      "description": "ウォレットデータがCanaryアカウントや請求上の本人情報と結び付く可能性を確認したうえで、ホスト型サブスクリプションを利用できます。",
-      "action": "Canary Cloudを見る"
+      "title": "ノードがない、またはCanaryを自分で運用したくないですか？",
+      "description": "Canary Cloudは同じ監視専用のモニタリングを代行し、セルフホストでは使えないメールとSMSの通知を提供します。",
+      "action": "Canary Cloudを使う",
+      "features": {
+        "email": "メール通知",
+        "sms": "SMS通知",
+        "noNode": "ノード不要"
+      }
     },
     "faq": {
       "title": "よくある質問",
@@ -212,7 +222,7 @@
         },
         "privateKeys": {
           "question": "Canaryに秘密鍵は必要ですか？",
-          "answer": "いいえ。Canaryはディスクリプタ、XPUB、アドレスを監視専用で使用します。トランザクションへの署名や資金の移動はできません。"
+          "answer": "いいえ。Canaryはディスクリプタ、XPUB、アドレスを使って、シングルシグとマルチシグのウォレットを監視専用で確認します。トランザクションへの署名や資金の移動はできません。"
         },
         "nodes": {
           "question": "対応するノードプラットフォームは？",
@@ -220,7 +230,7 @@
         },
         "methods": {
           "question": "どのような方法で通知されますか？",
-          "answer": "セルフホスト版Canaryはntfy、Nostr、Webhookに対応します。利用可否はデプロイ構成によって異なる場合があります。"
+          "answer": "セルフホスト版Canaryはntfy、Nostr、Webhookに対応します。Canary Cloudはセルフホストでは使えないメールとSMSを追加し、ntfyにも対応します。"
         },
         "privacy": {
           "question": "通知は完全にプライベートですか？",
@@ -228,14 +238,15 @@
         },
         "cloud": {
           "question": "Canary Cloudとの違いは？",
-          "answer": "Cloudは有料のホスト型サービスです。提供した監視専用ウォレットデータを保存し、アカウントや請求上の本人情報と結び付く可能性がありますが、秘密鍵を受け取ることはなく、資金を使うこともできません。"
+          "answer": "Cloudは、ノードを持たない方やCanaryを自分で運用したくない方向けの有料ホスト型サービスです。メールとSMSの通知を含み、提供した監視専用ウォレットデータを保存し、アカウントや請求上の本人情報と結び付く可能性がありますが、秘密鍵を受け取ることはなく、資金を使うこともできません。"
         }
       }
     },
     "final": {
       "title": "あなたのビットコインにカナリアを。",
-      "description": "ノードにインストールし、ホスト型デモを試すか、継続的な開発を支援してください。",
+      "description": "ノードでセルフホストするか、自分で運用したくない場合はCanary Cloudを使ってください。",
       "install": "Canaryをインストール",
+      "cloud": "Canary Cloudを使う",
       "demo": "デモを試す",
       "donate": "寄付する"
     },
@@ -254,7 +265,8 @@
       "noAccount": "アカウントをお持ちでないですか？登録",
       "forgotPassword": "パスワードをお忘れですか？",
       "devMode": "開発モード",
-      "loginFailed": "ログイン失敗"
+      "loginFailed": "ログイン失敗",
+      "authenticatorCode": "認証コード"
     },
     "signUp": {
       "title": "30日間無料トライアルを開始",
@@ -373,7 +385,7 @@
       },
       "test": {
         "title": "テスト通知",
-        "description": "テスト通知を送信して、ntfyの設定が正しく動作しているか確認します。",
+        "description": "この ntfy の送信先に届くか、接続テストを送信して確認します。",
         "topicLabel": "トピック",
         "topicPlaceholder": "test-topic",
         "send": "テスト送信",
@@ -455,7 +467,7 @@
     },
     "nostr": {
       "title": "Nostr DM",
-      "description": "このセルフホスト Canary インスタンスから暗号化された Nostr ダイレクトメッセージを送信します",
+      "description": "このセルフホスト Canary インスタンスから暗号化された Nostr ダイレクトメッセージを送信します。.onion 受信箱リレーに届けるには、システム Tor を動かし CANARY_NOSTR_SOCKS_PROXY を設定してください（通常 127.0.0.1:9050）。",
       "senderLabel": "Canary 送信者 npub",
       "loading": "送信者キーを読み込み中...",
       "loadFailed": "Nostr 設定を読み込めませんでした",
@@ -481,11 +493,32 @@
         "recipientLabel": "テスト受信者",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr 受信者は必須です",
+        "description": "この Nostr 受信者が DM を受け取れるか、接続テストを送信して確認します。",
         "send": "テスト送信",
         "sending": "送信中...",
         "success": "Nostr テスト DM を送信しました！",
         "successWithMode": "{mode} で Nostr テスト DM を送信しました。",
         "error": "Nostr テスト DM を送信できませんでした"
+      }
+    },
+    "telegram": {
+      "title": "Telegram",
+      "description": "このセルフホスト Canary インスタンスの Telegram ボットでアラートを送信します",
+      "help": "@BotFather でボットを作成し、トークンをここに貼り付けてからボットにメッセージを送ります。宛先には数値のチャット ID または公開 @username を使います。",
+      "tokenLabel": "ボットトークン",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "保存済みトークンを削除",
+      "loadFailed": "Telegram 設定を読み込めませんでした",
+      "saveFailed": "Telegram 設定を保存できませんでした",
+      "test": {
+        "chatIdLabel": "テスト用チャット ID",
+        "chatIdPlaceholder": "123456789 または @username",
+        "description": "ボットトークンを保存したあと、接続テストを送信します。",
+        "send": "テスト送信",
+        "sending": "送信中...",
+        "success": "Telegram テストメッセージを送信しました！",
+        "error": "Telegram テストメッセージを送信できませんでした: {detail}",
+        "unknownError": "不明なエラー"
       }
     },
     "notifications": {
@@ -561,7 +594,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "ウォレットの出力ディスクリプタまたはXPUBを入力してください。スクリプトタイプは自動検出されます。",
+      "descriptorHint": "シングルシグとマルチシグのディスクリプタの両方に対応しています。スクリプトタイプは自動検出されます。",
       "advancedSettings": "詳細設定",
       "scriptType": {
         "label": "スクリプトタイプ",
@@ -604,16 +637,16 @@
         "scriptTypeRequired": "新しいXPUBウォレットにはスクリプトタイプが必要です"
       },
       "wizard": {
-        "keysStaySafe": "Canary Walletはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
+        "keysStaySafe": "Canary Walletは、シングルシグとマルチシグのウォレットを監視するために出力ディスクリプタ、XPUB、またはアドレスだけが必要です。秘密鍵はウォレット内で安全に保管されます。",
         "trySampleWallet": "初めてですか？まずサンプルウォレットでCanary Walletの動作を確認してください。",
         "sampleWallets": {
           "bacon": "Baconウォレットを使用",
           "satoshi-genesis": "Satoshi Genesisアドレスを使用"
         },
-        "guidesPrompt": "出力ディスクリプタやXPUBの取得方法がわからない場合は、以下のガイドをご覧ください：",
+        "guidesPrompt": "出力ディスクリプタやXPUBの取得方法がわからない場合は、以下のガイドをご覧ください。シングルシグとマルチシグのウォレットの両方に対応しています：",
         "exportSteps": "{walletName}からディスクリプタをエクスポートするには、以下の手順に従ってください",
         "pasteXpub": "下にXPUBを貼り付けてください。",
-        "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",
+        "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。マルチシグウォレットはディスクリプタを使います。",
         "samplePrefilled": "{name}サンプルウォレットを事前入力しました。ウォレットを追加をクリックして続行してください。",
         "enterDetails": "詳細を入力",
         "walletType": {
@@ -623,12 +656,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "ディスクリプタを完全サポートするBitcoinデスクトップウォレット",
+          "description": "マルチシグを含むディスクリプタを完全サポートするBitcoinデスクトップウォレット",
           "steps": [
             "Sparrowでウォレットを開く",
             "Settingsタブに移動",
             "Output Descriptorの横にある「Show」をクリック",
-            "ディスクリプタ文字列全体をコピー（wpkh、wsh、またはtrで始まる）"
+            "ディスクリプタ文字列全体をコピー（wpkh、wsh、またはtrで始まる）。マルチシグウォレットは通常 wsh で始まります。"
           ]
         },
         "bluewallet": {
@@ -698,6 +731,10 @@
       "contacts": "連絡先",
       "balanceAlerts": "残高アラート",
       "walletDetails": "ウォレットの詳細",
+      "labels": "ラベル",
+      "labelsHint": "BIP-329ラベルファイルを書き出すか取り込むと、他のウォレットでも同じ名前を使えます。",
+      "exportLabels": "ラベルをエクスポート",
+      "importLabels": "ラベルをインポート",
       "descriptorLabel": "Output Descriptor",
       "addressLabel": "アドレス",
       "scriptType": "スクリプトタイプ",
@@ -777,15 +814,18 @@
       "namePlaceholder": "連絡先名",
       "methodTitle": "通知方法",
       "providers": {
-        "ntfy": "ntfy.sh通知",
+        "ntfy": "ntfy通知",
         "twilio": "SMS通知",
         "email": "メール通知",
         "nostr": "Nostr DM",
-        "webhook": "JSON Webhook"
+        "webhook": "JSON Webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
-        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください",
+        "topicHint": "URLではなくトピック名だけを入力してください。通知は {server} に送られます。サーバーは設定で変更できます。",
+        "topicPrivacyGenerated": "このトピックは変更できます。通知のプライバシーを守るため、推測しにくい名前を生成しました。自分で決める場合も、推測しにくい名前にしてください。",
+        "topicPrivacyCustom": "このトピックは変更できます。通知のプライバシーを守るため、推測しにくい名前を選んでください。",
         "localServer": "ローカルntfy"
       },
       "sms": {
@@ -800,10 +840,10 @@
       "webhook": {
         "urlLabel": "Webhook URL",
         "urlPlaceholder": "http://receiver.local:8080/canary?token=secret",
-        "urlHint": "Canary はこの URL に JSON を送信します。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
+        "urlHint": "Canary はこの URL に JSON を送信します。ntfy のプッシュ通知には ntfy を選び、トピック名を入力してください。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
         "test": "テスト",
         "testing": "テスト中...",
-        "testSuccess": "テスト Webhook が正常に配信されました。",
+        "testSuccess": "テスト Webhook を配信しました。URL に到達できることを確認します。",
         "testError": "テスト失敗: {detail}",
         "unknownError": "不明なエラー",
         "invalidUrl": "ユーザー情報やフラグメントを含まない絶対 HTTP または HTTPS URL を入力してください。"
@@ -812,6 +852,17 @@
         "recipientLabel": "Nostr 受信者",
         "recipientPlaceholder": "npub1... または hex 公開鍵",
         "recipientHint": "連絡先の npub または 64 文字の公開鍵を入力してください。NIP-17 配信には、連絡先に kind 10050 DM 受信箱リレーリストが必要です。秘密鍵 nsec は絶対に入力しないでください。"
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram チャット ID",
+        "chatIdPlaceholder": "123456789 または @username",
+        "chatIdHint": "数値のチャット ID（負のグループ ID を含む）または公開 @username を使います。非公開チャットに配信するには、先にボットへメッセージを送ってください。",
+        "test": "テスト",
+        "testing": "テスト中...",
+        "testSuccess": "Telegram のテストメッセージを配信しました。ボットがこのチャットに到達できることを確認します。",
+        "testError": "テストに失敗しました: {detail}",
+        "unknownError": "不明なエラー",
+        "invalidChatId": "数値の Telegram チャット ID、または文字で始まる @username（5〜32 文字）を入力してください。"
       }
     },
     "edit": {
@@ -854,7 +905,8 @@
       "phoneRequired": "電話番号は必須です",
       "emailRequired": "メールアドレスは必須です",
       "nostrRecipientRequired": "Nostr 受信者は必須です",
-      "webhookUrlRequired": "Webhook URL は必須です"
+      "webhookUrlRequired": "Webhook URL は必須です",
+      "telegramChatIdRequired": "Telegram チャット ID は必須です"
     },
     "wizard": {
       "nameStep": "連絡先名",
@@ -984,7 +1036,12 @@
     "walletLabel": "ウォレット: {name}",
     "loadOlder": "古い取引を読み込む",
     "expandDetails": "取引の詳細を表示",
-    "collapseDetails": "取引の詳細を非表示"
+    "collapseDetails": "取引の詳細を非表示",
+    "label": "ラベル",
+    "labelPlaceholder": "ラベルを追加",
+    "exportLabels": "ラベルをエクスポート",
+    "importLabels": "ラベルをインポート",
+    "labelActionFailed": "トランザクションラベルを更新できませんでした。もう一度お試しください。"
   },
   "billing": {
     "title": "サブスクリプション",
@@ -1236,12 +1293,29 @@
       "nostr_send_timeout": "Nostr DM の送信がタイムアウトしました。受信者のリレー設定を確認して、もう一度お試しください。",
       "nostr_no_dm_relays": "受信者はモダン NIP-17 Nostr DM を有効にしていません。Auto またはレガシー NIP-04 モードを試してください。",
       "nostr_send_failed": "Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。",
-      "nostr_nip04_failed": "レガシー NIP-04 Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。"
+      "nostr_auth_failed": "Nostr の受信ボックスリレーが認証を拒否しました。相手の DM リレー URL がリレーの公開アドレスと一致しているか確認してください。",
+      "nostr_nip04_failed": "レガシー NIP-04 Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。",
+      "nostr_onion_socks_required": "受信者の Nostr 受信箱は .onion リレーを使用しています。CANARY_NOSTR_SOCKS_PROXY にローカルの Tor SOCKS ポート（通常 127.0.0.1:9050）を設定してください。",
+      "admin_mfa_required": "認証アプリのコードを入力してログインしてください。",
+      "admin_mfa_invalid": "認証に失敗しました。新しいコードを試すか、運用担当者に連絡してください。",
+      "admin_mfa_rate_limited": "試行回数が多すぎます。5分後にもう一度お試しください。",
+      "admin_reauthentication_required": "パスワードと認証コードで再度ログインしてください。",
+      "admin_wallets_unsupported": "クラウド管理者はウォレットを追加できません。顧客アカウントの確認にはサポートアクセスを使ってください。",
+      "support_target_not_found": "そのメールに一致する顧客はいません。",
+      "support_target_invalid": "サポートアクセスは顧客アカウント専用です。",
+      "support_reason_required": "このアクセスが必要な理由を書いてください。",
+      "support_reason_too_long": "理由は280文字以内にしてください。",
+      "support_access_rate_limited": "検索が多すぎます。数分後に再試行してください。",
+      "invalid_telegram_chat_id": "Telegram チャット ID が無効です。数値のチャット ID または @username を入力してください。",
+      "telegram_not_configured": "このサーバーでは Telegram 通知が設定されていません。",
+      "telegram_test_self_hosted_only": "Telegram のテストメッセージはセルフホストモードでのみ利用できます。",
+      "telegram_self_hosted_only": "Telegram 通知はセルフホストモードでのみ利用できます。"
     }
   },
   "footer": {
     "logoAlt": "Canary Walletロゴ",
     "appName": "Canary Wallet",
+    "version": "バージョン {version}",
     "blockInfo": "ブロック {height}",
     "donations": "寄付"
   },
@@ -1351,7 +1425,8 @@
       "sendTest": "送信テスト",
       "testing": "テストを送信中…",
       "testSent": "テストを送信しました",
-      "testFailed": "テスト通知を送信できませんでした。"
+      "testFailed": "テスト通知を送信できませんでした。",
+      "connectivityHint": "送信先に到達できるかを確認します。通知設定を確認するには、送信先を保存してください。"
     },
     "privacy": {
       "label": "コンテンツのプライバシー",
@@ -1515,8 +1590,16 @@
       "errors": {
         "invalidBtc": "有効なBTC金額を入力してください",
         "invalidFiat": "有効な法定金額を入力してください",
-        "validationFailed": "残高アラートを検証できませんでした"
-      }
+        "validationFailed": "残高アラートを検証できませんでした",
+        "invalidSats": "サトシの整数を入力してください",
+        "balanceUnavailable": "現在の残高は利用できません",
+        "fiatUnavailable": "現在の残高の法定通貨額はありません"
+      },
+      "useCurrent": "現在の残高を使う",
+      "currentLabel": "現在の残高",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "アラートはこの合計（未確認分を含む）を使います。",
+      "currentUnavailable": "現在の残高は利用できません。ウォレットの同期が終わってから再試行してください。"
     },
     "thresholdTypes": {
       "above": "超過",
@@ -1549,7 +1632,7 @@
         "delivery": {
           "short": "配送",
           "title": "アラートはどこに送信する必要がありますか?",
-          "description": "この宛先に名前を付け、配送方法を 1 つ選択してください。検証はここに留まるので、続行する前に宛先が機能するかどうかを確認できます。"
+          "description": "この送信先に名前を付け、配信方法を 1 つ選びます。続行前に、送信先へ届くか接続テストを送ります。"
         },
         "alerts": {
           "short": "アラートのタイミング",
@@ -1584,6 +1667,7 @@
       "inactive": "非アクティブ",
       "disabled": "オフ",
       "deliveryNotice": "送信先はここでは非表示です。編集すると完全な送信先を確認できます。",
+      "testHint": "テストメッセージには、この送信先の保存済み通知設定が一覧表示されます。",
       "delivery": "配送",
       "transactionAlerts": "トランザクションアラート",
       "messageContent": "メッセージ内容",
@@ -1625,30 +1709,14 @@
     "hero": {
       "eyebrow": "ホスト型Bitcoin監視",
       "title": "Canary Cloud",
-      "description": "Canary Cloudが監視サービスを運用します。プライバシー上のトレードオフを確認してから、ニーズに合うホスト型プランを選んでください。",
-      "selfHost": "セルフホストをご希望ですか？ノードにCanaryをインストール"
-    },
-    "privacy": {
-      "eyebrow": "プライバシーに関する開示",
-      "title": "Canary Cloudが把握できる情報",
-      "description": "ホスト型監視には監視専用ウォレットデータが必要です。登録前に、保存される内容と関連付けの可能性を理解してください。",
-      "items": {
-        "walletData": {
-          "title": "監視専用ウォレット情報を保存",
-          "description": "Canary Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。"
-        },
-        "visibility": {
-          "title": "ウォレットの動きが明らかになる可能性",
-          "description": "その監視専用情報から、ウォレットアドレス、残高、取引履歴が分かる可能性があります。"
-        },
-        "identity": {
-          "title": "ウォレットと請求上の本人情報が結び付く可能性",
-          "description": "Canaryのアカウントとサブスクリプションにより、ウォレット情報がアカウントや請求上の本人情報と結び付く可能性があります。"
-        },
-        "privateKeys": {
-          "title": "秘密鍵は一切受け取りません",
-          "description": "Canary Cloudは秘密鍵を一切受け取らず、トランザクションへの署名や資金の移動はできません。"
-        }
+      "description": "ノードがない場合やCanaryを自分で運用したくない場合、Canary Cloudが監視サービスを代行します。メールとSMSの通知に加え、ntfyのプッシュも利用できます。秘密鍵は必要ありません。",
+      "signUp": "無料トライアルを開始",
+      "demo": "デモを試す",
+      "selfHost": "セルフホストをご希望ですか？ノードにCanaryをインストール",
+      "features": {
+        "email": "メール通知",
+        "sms": "SMS通知",
+        "noNode": "ノード不要"
       }
     },
     "pricing": {
@@ -1665,6 +1733,112 @@
     },
     "footer": {
       "selfHost": "代わりにCanaryをセルフホストする"
+    },
+    "faq": {
+      "title": "プライバシーに関する質問",
+      "description": "ホスト型の監視は、仕事をするために監視専用のウォレットデータを必要とします。重要な点は次のとおりです。",
+      "items": {
+        "walletData": {
+          "question": "Canary Cloudはどのウォレットデータを保存しますか？",
+          "answer": "Canary Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。シングルシグとマルチシグのウォレットも含まれます。"
+        },
+        "visibility": {
+          "question": "Canary Cloudはウォレットの動きを見られますか？",
+          "answer": "はい。その監視専用情報から、アドレス、残高、取引履歴が分かる場合があります。"
+        },
+        "identity": {
+          "question": "ウォレットデータはアカウントと結び付きますか？",
+          "answer": "Canaryアカウントとサブスクリプションは、ウォレット情報をアカウントや請求上の本人情報と結び付けることがあります。"
+        },
+        "privateKeys": {
+          "question": "Canary Cloudは秘密鍵を受け取りますか？",
+          "answer": "いいえ。Canary Cloudは秘密鍵を受け取らず、トランザクションへの署名や資金の移動もできません。"
+        }
+      }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "あなた専用のBitcoinノード。ホスティングもお任せください。",
+    "description": "ご自身のホスティングアカウントで稼働する専用のCanaryインスタンスとBitcoinフルノード。導入時の個別サポートに加え、継続的な保守・アップグレード支援を提供します。",
+    "price": "月額{price}から",
+    "terms": "ホスティング込み。初期設定費用は別途お見積もり。適用される税金は別途かかります。",
+    "availability": "個別のご相談により提供します。有効化の前に、構成、アクセス制御、保守体制について合意します。",
+    "contact": "お問い合わせ",
+    "learnMore": "Canary Privateを見る",
+    "audience": "多額の資産をコールドストレージで保管する個人、ご家族の資産管理者、小規模なBitcoin財務管理向け。",
+    "benefitsTitle": "ニーズに合わせた構成",
+    "benefits": {
+      "monitoring": {
+        "title": "専用の監視環境",
+        "description": "ご提案する構成では、CanaryとBitcoinバックエンドを一緒に稼働させ、Canaryの共有Electrumサービスへの照会は行いません。"
+      },
+      "control": {
+        "title": "お客様による管理",
+        "description": "ホスティングアカウントはお客様が所有します。設定前にアクセスとアップグレードの取り決めを行います。"
+      },
+      "service": {
+        "title": "個別サポート",
+        "description": "導入時の個別サポートと継続的な支援を提供し、その範囲はお見積もりで確認します。"
+      },
+      "watchOnly": {
+        "title": "監視専用の運用",
+        "description": "Canaryはシードフレーズや秘密鍵を必要とせずにウォレットを監視します。"
+      }
+    },
+    "stepsTitle": "ご利用までの流れ",
+    "steps": {
+      "needs": {
+        "title": "ご要望をお聞かせください",
+        "description": "監視のニーズやご希望のサポート内容をご説明ください。"
+      },
+      "quote": {
+        "title": "構成とお見積もりに合意",
+        "description": "ホスティング、アクセス制御、保守体制、料金を一緒に確認します。"
+      },
+      "setup": {
+        "title": "インスタンスを設定",
+        "description": "取り決めに合意した後、専用インスタンスの稼働開始をお手伝いします。"
+      }
+    },
+    "faqTitle": "よくある質問",
+    "faq": {
+      "cloud": {
+        "question": "Canary PrivateとCloudの違いは何ですか？",
+        "answer": "Cloudは共有インフラ上で運用管理された監視を提供します。Canary Privateは、ご自身のホスティングアカウントで稼働する専用のCanaryインスタンスとBitcoinフルノードで、導入時の個別サポートと支援内容を事前に取り決めます。"
+      },
+      "privacy": {
+        "question": "ホスティングアカウントの所有者は誰ですか？プライバシーにはどのような影響がありますか？",
+        "answer": "ホスティングアカウントはお客様が所有します。ご提案する構成では、Canaryの共有Electrumサービスではなく専用のBitcoinバックエンドを使用します。ホスティング事業者や通知サービス事業者は引き続き信頼が必要な対象です。アカウントの所有によって、設定や保守のために合意した運用者のアクセス権がなくなるわけではありません。"
+      },
+      "maintenance": {
+        "question": "保守とアップグレードはどのように行われますか？",
+        "answer": "有効化の前に、アクセス制御、保守の責任分担、アップグレードの取り決め、継続的な支援の範囲について合意します。含まれる内容はお見積もりで確認します。"
+      },
+      "pricing": {
+        "question": "料金と提供時期を教えてください。",
+        "answer": "Canary Privateは個別のご相談により、ホスティング込みで月額{price}から提供します。初期設定費用は別途お見積もりとなり、適用される税金が別途かかります。有効化の前に、提供範囲、最終的な料金、提供時期を確認します。"
+      }
+    },
+    "form": {
+      "title": "Canary Privateについて問い合わせる",
+      "description": "監視のニーズを簡潔にお聞かせください。ウォレットの詳細、残高、シードフレーズ、秘密鍵は記載しないでください。",
+      "placeholder": "監視のニーズとご希望のサポート内容を簡潔にご記入ください。",
+      "success": "お問い合わせありがとうございます。メッセージを受け付けました。折り返しご連絡します。"
+    }
+  },
+  "supportPage": {
+    "title": "サポートアクセス",
+    "description": "顧客は1件ずつ確認します。アクセスは15分で期限切れになり、記録されます。",
+    "emailLabel": "顧客のメール",
+    "reasonLabel": "理由",
+    "reasonPlaceholder": "このアカウントを確認する理由",
+    "submit": "アカウントを開く",
+    "endAccess": "アクセスを終了",
+    "activeTitle": "{email} を表示中",
+    "expires": "アクセス終了時刻 {time}",
+    "empty": "この顧客にはウォレットがありません。",
+    "readOnly": "閲覧のみ"
   }
 }

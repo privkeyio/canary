@@ -39,6 +39,7 @@ interface TransactionsProps {
   loadingTransactionNotifications?: Record<string, boolean>
   transactionNotificationErrors?: Record<string, string | null>
   loadTransactionNotifications?: (walletChecksum: string, txid: string) => void
+  onLabelChange?: (transaction: Transaction, label: string | null) => Promise<void>
 }
 
 function getTransactionRowKey(transaction: Transaction) {
@@ -70,6 +71,7 @@ export function Transactions({
   loadingTransactionNotifications = {},
   transactionNotificationErrors = {},
   loadTransactionNotifications = () => {},
+  onLabelChange,
 }: TransactionsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -136,19 +138,10 @@ export function Transactions({
     return t("title")
   }
 
-  const getCardDescription = () => {
-    if (selectedWalletChecksum && filteredTransactions.length === 0) {
-      return t("emptyForWallet")
-    }
-
-    return undefined
-  }
-
   const loadedCountLabel = useMemo(
     () => t("count", { count: filteredTransactions.length }),
     [filteredTransactions.length, t],
   )
-  const cardDescription = getCardDescription()
 
   if (!hasReceivedData) {
     return (
@@ -235,7 +228,6 @@ export function Transactions({
     <Card>
       <CardHeader>
         <CardTitle>{getCardTitle()}</CardTitle>
-        {cardDescription && <CardDescription>{cardDescription}</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-4">
         {filteredTransactions.length === 0 ? (
@@ -263,6 +255,7 @@ export function Transactions({
                     isLoadingNotifications={loadingTransactionNotifications[rowKey]}
                     notificationError={transactionNotificationErrors[rowKey]}
                     onToggle={toggleRowExpansion}
+                    onLabelChange={onLabelChange ? (label) => onLabelChange(transaction, label) : undefined}
                   />
                 )
               })}
@@ -399,7 +392,8 @@ export function Transactions({
                                   isExpanded={isExpanded}
                                   notifications={transactionNotifications[rowKey]}
                                   isLoadingNotifications={loadingTransactionNotifications[rowKey]}
-                                  notificationError={transactionNotificationErrors[rowKey]}
+                                notificationError={transactionNotificationErrors[rowKey]}
+                                onLabelChange={onLabelChange ? (label) => onLabelChange(transaction, label) : undefined}
                                 />
                               </div>
                             </TableCell>

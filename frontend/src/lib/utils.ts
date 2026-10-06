@@ -288,6 +288,14 @@ export async function handleApiResponse(response: Response): Promise<unknown> {
       errorMessage = getDefaultErrorMessage(response.status)
     }
 
+    // Only a server-confirmed stale administrator step-up should invalidate
+    // the whole client session. Generic 401/403 responses also cover public
+    // getMe probes and permission errors such as demo_read_only/access_denied.
+    if (typeof window !== 'undefined' && errorCode === 'admin_reauthentication_required') {
+      window.dispatchEvent(new CustomEvent('canary-auth-expired', {
+        detail: { status: response.status, errorCode },
+      }))
+    }
     throw new ApiError(errorMessage, errorType, response.status, errorCode)
   }
 
@@ -424,6 +432,18 @@ export function satsToBtc(sats: number): number {
 
 export function btcToSats(btc: number): number {
   return Math.round(btc * 100_000_000)
+}
+
+/** Exact BTC input string for an integer satoshi amount, without rounding or grouping. */
+export function satsToExactBtcInput(sats: number): string {
+  if (!Number.isInteger(sats)) {
+    throw new RangeError("satsToExactBtcInput requires an integer satoshi amount")
+  }
+  const sign = sats < 0 ? "-" : ""
+  const abs = Math.abs(sats)
+  const whole = Math.floor(abs / 100_000_000)
+  const fraction = String(abs % 100_000_000).padStart(8, "0").replace(/0+$/, "")
+  return `${sign}${whole}${fraction ? `.${fraction}` : ""}`
 }
 
 export function formatBtcAmount(btc: number, locale: string): string {

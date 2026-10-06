@@ -23,6 +23,9 @@ pub struct AdminNotifications {
 
 impl AdminNotifications {
     pub fn is_enabled_for_env() -> bool {
+        if crate::config::AppConfig::restore_drill_enabled() {
+            return false;
+        }
         let is_cloud_mode = std::env::var("CANARY_MODE")
             .map(|m| m.to_lowercase() == "cloud")
             .unwrap_or(false);
@@ -198,8 +201,9 @@ impl AdminNotifications {
                     );
                 }
             }
-            Err(e) => {
-                tracing::error!("❌ Admin notification error: {} - {}", title, e);
+            Err(_) => {
+                // reqwest errors can include the complete private ntfy topic URL.
+                tracing::error!("Admin notification request failed");
             }
         }
     }
@@ -217,6 +221,7 @@ mod tests {
         canary_mode: Option<String>,
         admin_topic: Option<String>,
         ntfy_server_url: Option<String>,
+        restore_drill: Option<String>,
     }
 
     impl EnvGuard {
@@ -225,6 +230,7 @@ mod tests {
                 canary_mode: std::env::var("CANARY_MODE").ok(),
                 admin_topic: std::env::var("ADMIN_NOTIFICATION_TOPIC").ok(),
                 ntfy_server_url: std::env::var("NTFY_SERVER_URL").ok(),
+                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
             }
         }
 
@@ -232,6 +238,7 @@ mod tests {
             restore_env_var("CANARY_MODE", self.canary_mode.clone());
             restore_env_var("ADMIN_NOTIFICATION_TOPIC", self.admin_topic.clone());
             restore_env_var("NTFY_SERVER_URL", self.ntfy_server_url.clone());
+            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
         }
     }
 
@@ -274,8 +281,12 @@ mod tests {
         std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
         assert!(!AdminNotifications::is_enabled_for_env());
 
+        std::env::remove_var("CANARY_RESTORE_DRILL");
         std::env::set_var("CANARY_MODE", "cloud");
         assert!(AdminNotifications::is_enabled_for_env());
+
+        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        assert!(!AdminNotifications::is_enabled_for_env());
 
         drop(env_guard);
     }
@@ -323,5 +334,57 @@ mod tests {
             .is_ok());
 
         drop(env_guard);
+    }
+}
+
+#[cfg(test)]
+mod log_privacy_tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    #[derive(Clone)]
+    struct Capture(Arc<Mutex<Vec<u8>>>);
+    impl std::io::Write for Capture {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    #[tokio::test]
+    async fn failed_admin_request_does_not_log_private_topic() {
+        let logs = Arc::new(Mutex::new(Vec::new()));
+        let writer = Capture(logs.clone());
+        let subscriber = tracing_subscriber::fmt()
+            .without_time()
+            .with_ansi(false)
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(move || writer.clone())
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+        // A non-HTTP URL produces a real reqwest builder failure without network traffic.
+        let admin = AdminNotifications {
+            client: reqwest::Client::new(),
+            topic: None,
+            server_url: "file:///synthetic-private-server".into(),
+        };
+        admin
+            .send_notification(
+                "synthetic-private-topic",
+                "Test",
+                "synthetic-private-body",
+                "test",
+            )
+            .await;
+        let output = String::from_utf8(logs.lock().unwrap().clone()).unwrap();
+        assert!(output.contains("Admin notification request failed"));
+        for secret in [
+            "synthetic-private-server",
+            "synthetic-private-topic",
+            "synthetic-private-body",
+        ] {
+            assert!(!output.contains(secret), "Private fixture appeared in logs");
+        }
     }
 }
