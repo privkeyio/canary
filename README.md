@@ -29,7 +29,7 @@ Only Bitcoin Knots schedules the hardfork, and only a BLAKE2b-aware Electrum ser
 
 ## Verification
 
-The whole chain is verified against a live Knots-backed Electrum server, and `backend/system_tests/blake2b_hardfork_headers.rs` drives the real client over a socket against a fake one, asserting both the recombined timestamp and the BLAKE2b block id. Removing the patches reproduces the production error exactly.
+The whole chain is verified against a live Knots-backed Electrum server, and `backend/system_tests/blake2b_hardfork_headers.rs` drives the real client over a socket against a fake one, asserting both the recombined timestamp and the BLAKE2b block id. Removing the `bitcoin` patch reproduces the production error exactly. The `electrum-client` patch is not covered by that test: it rewrites the pre-1.6 concatenated-header path, and a server advertising protocol 1.6, which Fulcrum does, takes the array path instead.
 
 ---
 

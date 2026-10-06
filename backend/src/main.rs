@@ -42,6 +42,17 @@ mod wallet;
 mod webhook_provider;
 mod xpub_converter;
 
+/// Fails the build unless `bitcoin` is the fork carrying extended block header support.
+///
+/// Syncing against a Knots-backed Electrum server needs the 164 byte block header, which the
+/// `[patch.crates-io]` entry in Cargo.toml supplies. Cargo only honours `[patch]` in the workspace
+/// being built, so dropping or mistyping it would otherwise resolve the stock crate and compile
+/// clean, then mis-parse headers at runtime past the activation height. `V2_SIZE` exists only on
+/// the fork. Repeated here because the binary re-declares its modules rather than using the lib,
+/// so a build that selects only this target would otherwise carry no guard at all.
+const _: usize = bdk_wallet::bitcoin::block::Header::V2_SIZE;
+
+
 use config::AppConfig;
 use email_provider::EmailProvider;
 use metadata::{NotificationLogParams, TransactionNotification};
