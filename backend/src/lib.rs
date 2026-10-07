@@ -54,7 +54,6 @@ pub mod xpub_converter;
 /// the fork. Kept below the module list so an upstream change to that list cannot conflict with it.
 const _: usize = bdk_wallet::bitcoin::block::Header::V2_SIZE;
 
-
 // Re-export commonly used types
 pub use admin_notifications::AdminNotifications;
 pub use config::AppConfig;
