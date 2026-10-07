@@ -52,7 +52,6 @@ mod xpub_converter;
 /// so a build that selects only this target would otherwise carry no guard at all.
 const _: usize = bdk_wallet::bitcoin::block::Header::V2_SIZE;
 
-
 use config::AppConfig;
 use email_provider::EmailProvider;
 use metadata::{NotificationLogParams, TransactionNotification};
