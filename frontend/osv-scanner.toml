@@ -1,3 +1,9 @@
+# osv-scanner resolves this file per directory, beside the lockfile it applies to,
+# with no walk up to the repository root. It therefore covers frontend/pnpm-lock.yaml
+# only. backend/Cargo.lock and scripts/playwright/package-lock.json are also
+# scanned and have no config, so an unfixable advisory there needs its own sibling
+# file rather than an entry here.
+#
 # Advisories with no published fix in any version of the affected package.
 # Both reach the tree only through test and lint tooling, never the shipped
 # bundle, so neither is exploitable by a Canary user. Remove an entry as soon

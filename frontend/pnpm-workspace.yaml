@@ -17,8 +17,11 @@ overrides:
   flatted: 3.4.2
   'js-yaml@^3.0.0': 3.15.2
   'js-yaml@^4.0.0': 4.3.2
-  next: 16.3.8
   'nanoid@^3.0.0': 3.3.18
+  # Range-scoped: next is a direct dependency, so a bare pin would become a
+  # ceiling that silently blocks a future advisory fix. This stops applying once
+  # package.json moves off ^16.3.5.
+  'next@^16.3.5': 16.3.8
   'picomatch@^2.0.0': 2.3.2
   'picomatch@^4.0.0': 4.0.4
   postcss: 8.5.23
