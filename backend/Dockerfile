@@ -27,8 +27,9 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies. The upgrade picks up security updates for packages
+# the base image ships, such as perl-base, which the container scan flags.
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     ca-certificates \
     libssl3 \
     libpcre2-8-0 \

@@ -1,0 +1,12 @@
+# Advisories with no published fix in any version of the affected package.
+# Both reach the tree only through test and lint tooling, never the shipped
+# bundle, so neither is exploitable by a Canary user. Remove an entry as soon
+# as its package publishes a fix.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+reason = "braces 3.0.3 has no fixed release. Dev-only: micromatch, pulled in by eslint-config-next and @types/jest."
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c"
+reason = "sprintf-js 1.0.3 has no fixed release. Dev-only: argparse 1.0.10 via js-yaml 3.x under jest."
