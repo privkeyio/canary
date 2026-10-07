@@ -27,8 +27,16 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies. perl-base is pinned rather than upgraded with a
+# bare `apt-get upgrade` so the image stays a function of this tree instead of
+# mirror state: the s9pk is signed over its hash, so two builds of one commit
+# must not differ. The base image ships 5.36.0-7+deb12u3, which carries 7 CVEs
+# (3 critical); the fix lives only in bookworm-security, not in any base tag.
+# When Debian publishes a later revision the mirror drops this one and the build
+# fails loudly, which is the point: bump the pin and re-run the container scan.
+RUN apt-get update && apt-get install -y --only-upgrade \
+    perl-base=5.36.0-7+deb12u4 \
+    && apt-get install -y \
     ca-certificates \
     libssl3 \
     libpcre2-8-0 \

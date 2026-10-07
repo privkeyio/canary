@@ -9,3 +9,16 @@ condition = "AND"
 paths = ['''^backend/tests/jwt_provider_compatibility\.rs$''']
 regexTarget = "secret"
 regexes = ['''^eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiJzeW50aGV0aWMtdXNlciIsImVtYWlsIjoidGVzdEBleGFtcGxlLmludmFsaWQiLCJpc19hZG1pbiI6ZmFsc2UsImlzX2RlbW8iOmZhbHNlLCJleHAiOjQxMDI0NDQ4MDAsImlhdCI6MTcwMDAwMDAwMCwianRpIjoic3ludGhldGljLWNvbXBhdGliaWxpdHkifQ\.UpWUqfI8pwwH3EEzcOA7UR2bf_fpVrpoJ_-mAaZ9QC4$''']
+
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Translated UI labels in the message catalogs. These are the Danish and Norwegian strings for \"Username/password\", not credentials."
+condition = "AND"
+# Covers every catalog, including de-DE, en-US, es-419, fr-FR and pt-BR, not
+# just the lowercase ones. This is a full-history scan, so a catalog's old
+# paths must keep matching too: the no.json to nb.json rename is covered, but
+# moving the directory would need the old path kept here as well.
+paths = ['''^frontend/messages/[A-Za-z0-9-]+\.json$''']
+regexTarget = "secret"
+regexes = ['''^Brugernavn/adgangskode$''', '''^Brukernavn/passord$''']

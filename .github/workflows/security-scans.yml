@@ -37,9 +37,34 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # gitleaks-action requires a paid license key for organization-owned
+      # repositories. The scanner itself is MIT, so run the released image
+      # directly and keep the scan. The digest below is v8.30.1.
+      # Allowlist lives in .gitleaks.toml.
+      - name: Scan history for secrets
+        run: |
+          log=$(docker run --rm \
+            --network none --cap-drop ALL --security-opt no-new-privileges \
+            -v "$PWD:/repo:ro" \
+            -e GIT_CONFIG_COUNT=1 \
+            -e GIT_CONFIG_KEY_0=safe.directory \
+            -e GIT_CONFIG_VALUE_0=/repo \
+            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git /repo --config /repo/.gitleaks.toml --redact --exit-code 1 2>&1) && rc=0 || rc=$?
+          printf '%s\n' "$log"
+          # gitleaks downgrades a git-level failure to a logged error and still exits 0,
+          # so a broken mount or an ownership problem would report a clean scan over a
+          # repo full of secrets. Both failure signatures are checked: nothing walked,
+          # and git having written to stderr at all.
+          if printf '%s' "$log" | grep -q '0 commits scanned'; then
+            echo "::error::gitleaks scanned 0 commits, so the scan did not run"
+            exit 1
+          fi
+          if printf '%s' "$log" | grep -q '\[git\]'; then
+            echo "::error::git reported an error during the scan, so coverage is not trustworthy"
+            exit 1
+          fi
+          exit $rc
 
   container-scan:
     runs-on: ubuntu-latest
@@ -48,7 +73,9 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
-      - run: docker build --tag canary-backend:scan backend
+      # --pull so a cached base image cannot make the RUN layer a cache hit and
+      # silently skip the pinned security upgrade.
+      - run: docker build --pull --tag canary-backend:scan backend
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           image-ref: canary-backend:scan
