@@ -41,3 +41,18 @@ describe('sitemap', () => {
     expect(fs.existsSync(path.join(process.cwd(), 'public', 'sitemap.xml'))).toBe(false)
   })
 })
+
+describe('sitemap canonicals', () => {
+  // A sitemap URL whose canonical points elsewhere tells Google not to index it.
+  const metadataModules: Record<string, () => Promise<{ metadata?: { alternates?: { canonical?: unknown } } }>> = {
+    '/cloud': () => import('./cloud/page'),
+    '/private': () => import('./private/page'),
+    '/contact': () => import('./contact/layout'),
+    '/donations': () => import('./donations/layout'),
+  }
+
+  it.each(Object.entries(metadataModules))('%s declares itself as canonical', async (pagePath, load) => {
+    const { metadata } = await load()
+    expect(metadata?.alternates?.canonical).toBe(`https://canarybitcoin.com${pagePath}`)
+  })
+})
