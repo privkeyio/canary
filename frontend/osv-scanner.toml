@@ -1,0 +1,10 @@
+# Advisories with no patched release. Both packages are only reachable from
+# development tooling and never ship in the production image.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+reason = "braces has no patched release; only reachable via eslint-config-next (dev lint tooling)."
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c"
+reason = "sprintf-js has no patched release; only reachable via Jest coverage tooling (dev)."
