@@ -56,8 +56,12 @@ jobs:
           # so a broken mount or an ownership problem would report a clean scan over a
           # repo full of secrets. Both failure signatures are checked: nothing walked,
           # and git having written to stderr at all.
-          if printf '%s' "$log" | grep -q '0 commits scanned'; then
-            echo "::error::gitleaks scanned 0 commits, so the scan did not run"
+          # Compare the count as a number: a substring match on "0 commits scanned"
+          # also matches 10, 1600 and every other count ending in zero. A missing
+          # count reads as 0, so a gitleaks crash before it reports still fails.
+          scanned=$(printf '%s' "$log" | grep -oE '[0-9]+ commits scanned' | grep -oE '^[0-9]+' | tail -1)
+          if [ "${scanned:-0}" -eq 0 ]; then
+            echo "::error::gitleaks scanned ${scanned:-no} commits, so the scan did not run"
             exit 1
           fi
           if printf '%s' "$log" | grep -q '\[git\]'; then
