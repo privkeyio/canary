@@ -122,11 +122,11 @@ path = "system_tests/blake2b_hardfork_headers.rs"
 # "data not consumed entirely when explicitly deserializing".
 #
 # Both crates are pinned to an immutable rev rather than a branch, since they carry consensus code.
-# Each rev is also tagged in its repo (blake2b-hardfork-0.32-v1, blake2b-extended-headers-v1) so a
+# Each rev is also tagged in its repo (blake2b-hardfork-0.32-v1, blake2b-extended-headers-v2) so a
 # force-push cannot orphan it and break every clean build, including the Docker image.
 # bdk_wallet and bdk_electrum need no fork; they inherit the fix through `bitcoin`.
 [patch.crates-io]
 bitcoin = { git = "https://github.com/privkeyio/rust-bitcoin", rev = "e9aa336977e334f29fbe440a0dc0d21fa739fbf6" }
-electrum-client = { git = "https://github.com/privkeyio/rust-electrum-client", rev = "b5c4e202c84e39791e50e92ca576b2ad38bed02e" }
+electrum-client = { git = "https://github.com/privkeyio/rust-electrum-client", rev = "bae28010c620dbe9726499cece1f31066cf217bc" }
 # phonenumber needs postcard's std serialization, not embedded heapless atomics.
 postcard = { path = "vendor/postcard" }
