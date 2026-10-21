@@ -1,0 +1,13 @@
+# osv-scanner reads this file only for backend/Cargo.lock; see frontend/osv-scanner.toml.
+
+# RUSTSEC-2026-0381 covers every webpki-roots release below 1.0.10, so it also
+# matches 0.26.11, the compatibility shim tokio-tungstenite requires. The shim's
+# whole implementation is `pub use parent::TLS_SERVER_ROOTS`, re-exporting the
+# webpki-roots 1.x locked beside it, which is 1.0.10 and carries no affected root.
+# Scoped to this one version so a real webpki-roots 1.x below 1.0.10 still fails.
+[[PackageOverrides]]
+name = "webpki-roots"
+version = "0.26.11"
+ecosystem = "crates.io"
+vulnerability.ignore = true
+reason = "Root-less shim re-exporting webpki-roots 1.0.10, which drops emSign ECC Root CA - G3."
