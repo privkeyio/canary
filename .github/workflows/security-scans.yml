@@ -70,7 +70,7 @@ jobs:
           fi
           exit $rc
 
-  container-scan:
+  image-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -91,3 +91,17 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: CRITICAL,HIGH
+
+  # The deployment gate requires a single check named container-scan.
+  container-scan:
+    needs: image-scan
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.image-scan.result }}
+        run: |
+          if [ "$RESULT" != success ]; then
+            echo "::error::an image scan did not pass: $RESULT"
+            exit 1
+          fi
