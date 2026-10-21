@@ -73,16 +73,20 @@ jobs:
   container-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
       # --pull so a cached base image cannot make the RUN layer a cache hit and
-      # silently skip the pinned security upgrade.
-      - run: docker build --pull --tag canary-backend:scan backend
+      # silently skip a pinned security upgrade.
+      - run: docker build --pull --tag canary-${{ matrix.image }}:scan ${{ matrix.image }}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
-          image-ref: canary-backend:scan
+          image-ref: canary-${{ matrix.image }}:scan
           format: table
           exit-code: '1'
           ignore-unfixed: true
