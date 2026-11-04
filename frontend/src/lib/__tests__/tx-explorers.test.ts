@@ -48,7 +48,7 @@ describe("tx explorer helpers", () => {
     )
 
     expect(options).toEqual(PUBLIC_TX_EXPLORERS)
-    expect(DEFAULT_TX_EXPLORER.id).toBe("mempool-space")
+    expect(DEFAULT_TX_EXPLORER.id).toBe("mempool-guide")
   })
 
   it("chooses a local candidate URL matching the current browser hostname", () => {
@@ -222,17 +222,17 @@ describe("tx explorer helpers", () => {
     ).toBe("https://example-node.local:3006")
   })
 
-  it("uses saved mempool-space preference even when local mempool is available", () => {
+  it("uses saved mempool-guide preference even when local mempool is available", () => {
     const selected = resolveSelectedTxExplorer(
       [
         DEFAULT_TX_EXPLORER,
         { id: "mempool", name: "Mempool", baseUrl: "http://umbrel.local:3006", isLocal: true },
       ],
-      "mempool-space",
-      "mempool-space"
+      "mempool-guide",
+      "mempool-guide"
     )
 
-    expect(selected.id).toBe("mempool-space")
+    expect(selected.id).toBe("mempool-guide")
   })
 
   it("uses saved mempool preference when local mempool is available", () => {
@@ -280,7 +280,7 @@ describe("tx explorer helpers", () => {
     expect(selected.id).toBe("mempool-space")
   })
 
-  it("uses mempool.space when multiple local explorers exist and no preference exists", () => {
+  it("uses mempool.guide when multiple local explorers exist and no preference exists", () => {
     const selected = resolveSelectedTxExplorer(
       [
         DEFAULT_TX_EXPLORER,
@@ -288,10 +288,10 @@ describe("tx explorer helpers", () => {
         { id: "bitfeed", name: "Bitfeed", baseUrl: "http://umbrel.local:8314", isLocal: true },
       ],
       null,
-      "mempool-space"
+      "mempool-guide"
     )
 
-    expect(selected.id).toBe("mempool-space")
+    expect(selected.id).toBe("mempool-guide")
   })
 
   it("builds transaction URLs with a shared /tx path", () => {

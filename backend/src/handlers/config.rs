@@ -23,7 +23,7 @@ pub async fn get_config(State(config): State<Arc<AppConfig>>) -> Json<ConfigResp
         let default_tx_explorer_id = if tx_explorers.len() == 1 {
             tx_explorers[0].id.clone()
         } else {
-            "mempool-space".to_string()
+            "mempool-guide".to_string()
         };
 
         Json(ConfigResponse {
@@ -35,7 +35,7 @@ pub async fn get_config(State(config): State<Arc<AppConfig>>) -> Json<ConfigResp
     } else {
         Json(ConfigResponse {
             tx_explorers: Vec::new(),
-            default_tx_explorer_id: "mempool-space".to_string(),
+            default_tx_explorer_id: "mempool-guide".to_string(),
             ntfy_servers: Vec::new(),
             default_ntfy_server_id: config.default_ntfy_server_id(),
         })

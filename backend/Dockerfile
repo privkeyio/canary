@@ -20,7 +20,7 @@ COPY migrations ./migrations
 COPY locales ./locales
 
 # Build the application
-RUN cargo build --release
+RUN cargo build --release --locked
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -35,16 +35,17 @@ WORKDIR /app
 # When Debian publishes a later revision the mirror drops this one and the build
 # fails loudly, which is the point: bump the pin and re-run the container scan.
 # ca-certificates is pinned for the same reason: 20250419~deb12u2 is the first
-# bookworm revision that drops emSign ECC Root CA - G3 and AAA Certificate
-# Services, whose emSign intermediates have leaked private keys. Earlier
-# revisions trust them, and reqwest (native-tls) and the Nostr relays read this
-# store. Pinning also busts any cached layer built before that revision.
+# bookworm revision that drops emSign ECC Root CA - G3, which Mozilla removed
+# after a key compromise, along with AAA Certificate Services, which Debian
+# blacklisted in the same update. Earlier revisions trust them, and reqwest
+# (native-tls) and the Nostr relays read this store. Pinning also busts any cached layer built before that revision.
 RUN apt-get update && apt-get install -y --only-upgrade \
     perl-base=5.36.0-7+deb12u4 \
     && apt-get install -y \
     ca-certificates=20250419~deb12u2 \
     libssl3 \
     libpcre2-8-0 \
+    perl-base \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the Rust binary from builder stage

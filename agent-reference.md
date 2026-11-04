@@ -216,8 +216,8 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - `CANARY_MEMPOOL_URL` - Full URL to custom Mempool instance (e.g., `http://umbrel.local:3006`)
 - `CANARY_MEMPOOL_PORT` - Auto-detected by Umbrel `exports.sh` when Mempool app is installed
 - `CANARY_TX_EXPLORER_PLATFORM` - Optional package platform label for local explorers (`umbrel`, `mynode`, `startos`)
-- Default: `https://mempool.space` when neither is set
-- Cloud mode always uses `mempool.space` regardless of configuration
+- Default: `https://mempool.guide` when neither is set, since it follows BLAKE2b
+- Cloud mode always defaults to `mempool.guide` regardless of configuration
 
 ## Key Features
 

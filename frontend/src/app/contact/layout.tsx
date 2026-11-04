@@ -1,20 +1,22 @@
-"use client"
+import type { Metadata } from 'next'
+import ContactShell from './contact-shell'
 
-import { AppHeader } from "@/components/app-header"
-import { AppFooter } from "@/components/app-footer"
-import { DemoBanner } from "@/components/demo-banner"
+// The shell is a client component, so page metadata lives here. Without it the
+// page inherits the root canonical and Google treats it as a homepage duplicate.
+export const metadata: Metadata = {
+  title: 'Contact | Canary Wallet',
+  description: 'Questions or feedback about Canary Wallet? Send us a message and we will get back to you.',
+  alternates: {
+    canonical: 'https://canarybitcoin.com/contact',
+  },
+  openGraph: {
+    title: 'Contact | Canary Wallet',
+    description: 'Questions or feedback about Canary Wallet? Send us a message.',
+    url: 'https://canarybitcoin.com/contact',
+    images: ['/images/opengraph-image.png'],
+  },
+}
 
-export default function ContactLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <DemoBanner />
-      <AppHeader />
-      {children}
-      <AppFooter />
-    </div>
-  )
+export default function ContactLayout({ children }: { children: React.ReactNode }) {
+  return <ContactShell>{children}</ContactShell>
 }

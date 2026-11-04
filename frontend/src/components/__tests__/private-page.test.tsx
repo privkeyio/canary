@@ -5,6 +5,7 @@ import CloudPage from '../cloud-page'
 import { privateOffer } from '@/lib/private-offer'
 import fs from 'fs'
 import path from 'path'
+import sitemap from '@/app/sitemap'
 
 jest.mock('@/contexts/auth-context', () => ({ useAuth: () => ({ user: null, isAuthenticated: false }) }))
 jest.mock('next/navigation', () => ({ notFound: () => { throw new Error('NEXT_NOT_FOUND') } }))
@@ -21,7 +22,7 @@ it('serves the public page with enquiry anchors and dedicated metadata', () => {
   expect(metadata.alternates?.canonical).toBe('https://canarybitcoin.com/private')
   expect(metadata.openGraph).toMatchObject({ url: 'https://canarybitcoin.com/private' })
   expect(metadata.twitter).toMatchObject({ card: 'summary_large_image' })
-  expect(fs.readFileSync(path.join(process.cwd(), 'public/sitemap.xml'), 'utf8')).toContain('https://canarybitcoin.com/private')
+  expect(sitemap().map(entry => entry.url)).toContain('https://canarybitcoin.com/private')
 })
 
 it('returns not-found in self-hosted mode', () => {
