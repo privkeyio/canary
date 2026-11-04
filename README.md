@@ -1,12 +1,12 @@
 # Canary with BLAKE2b proof of work
 
-This is an unofficial fork of [Canary](https://github.com/schjonhaug/canary) that follows the BLAKE2b proof-of-work hardfork of Bitcoin. It is not affiliated with the Canary project. Upstream has not adopted the fork, so use upstream instead if that is what you want.
+This is an unofficial fork of [Canary](https://github.com/schjonhaug/canary) that follows Bitcoin's change of proof of work to BLAKE2b. It is not affiliated with the Canary project. Upstream has not adopted the change, so use upstream instead if that is what you want.
 
 > **Not reviewed by upstream.** Everything below the divider is upstream's documentation and describes Canary rather than this fork.
 
 ## What differs from upstream
 
-Nothing in Canary's own code. Past the hardfork's activation height a block header is 164 bytes and its id is a BLAKE2b hash rather than 80 bytes and SHA256d; stock rust-bitcoin parses 80 and rejects the rest, so every header lookup fails with `parse failed: data not consumed entirely when explicitly deserializing`, no wallet syncs, and the queue backs up indefinitely.
+Nothing in Canary's own code. Past the activation height a block header is 164 bytes and its id is a BLAKE2b hash rather than 80 bytes and SHA256d; stock rust-bitcoin parses 80 and rejects the rest, so every header lookup fails with `parse failed: data not consumed entirely when explicitly deserializing`, no wallet syncs, and the queue backs up indefinitely.
 
 The fix is entirely in the dependencies, pinned by immutable git rev in `backend/Cargo.toml`:
 
@@ -19,17 +19,17 @@ The fix is entirely in the dependencies, pinned by immutable git rev in `backend
 
 ## Requires a Knots-backed Electrum server
 
-Only Bitcoin Knots schedules the hardfork, and only a BLAKE2b-aware Electrum server serves the extended headers. A standard Fulcrum stops at the activation block rather than serving wrong data, and Electrs has no build that understands the new form at all.
+Only Bitcoin Knots schedules the change, and only a BLAKE2b-aware Electrum server serves the extended headers. A standard Fulcrum stops at the activation block rather than serving wrong data, and Electrs has no build that understands the new form at all.
 
 ## Branches
 
 | Branch | Base | Use |
 | --- | --- | --- |
-| `master` | upstream `master` | The fork's line. Carries the dependency patches. |
+| `master` | upstream's latest release | The fork's line. Carries the dependency patches. |
 
 ## Verification
 
-The whole chain is verified against a live Knots-backed Electrum server, and `backend/system_tests/blake2b_hardfork_headers.rs` drives the real client over a socket against a fake one, asserting both the recombined timestamp and the BLAKE2b block id. Removing the `bitcoin` patch reproduces the production error exactly. The `electrum-client` patch is not covered by that test: it rewrites the pre-1.6 concatenated-header path, and a server advertising protocol 1.6, which Fulcrum does, takes the array path instead.
+The whole chain is verified against a live Knots-backed Electrum server, and `backend/system_tests/blake2b_hardfork_headers.rs` drives the real client over a socket against a fake one, asserting both the recombined timestamp and the BLAKE2b block id. Removing the `bitcoin` patch fails the build at the guard, before that test can run. The `electrum-client` patch is not covered by that test: it rewrites the pre-1.6 concatenated-header path, and a server advertising protocol 1.6, which Fulcrum does, takes the array path instead.
 
 ---
 

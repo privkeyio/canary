@@ -43,8 +43,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v* \
     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
-# Copy public assets
-COPY --from=builder /app/public ./public
+# Copy public assets owned by the runtime user: the deploy checkout uses a
+# restrictive umask, so files can arrive as 0600 and be unreadable otherwise.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Copy standalone build (includes bundled node_modules)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
