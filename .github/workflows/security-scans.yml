@@ -84,8 +84,23 @@ jobs:
       # --pull so a cached base image cannot make the RUN layer a cache hit and
       # silently skip a pinned security upgrade.
       - run: docker build --pull --tag canary-${{ matrix.image }}:scan ${{ matrix.image }}
+      # Installs Trivy from its GitHub release, checked against a pinned hash,
+      # instead of the action's installer, which runs an unpinned script from
+      # Trivy's main branch that downloads from get.trivy.dev.
+      - env:
+          TRIVY_VERSION: 0.70.0
+          TRIVY_SHA256: 8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9
+        run: |
+          set -euo pipefail
+          tarball="$RUNNER_TEMP/trivy.tar.gz"
+          curl -fsSLo "$tarball" "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "$TRIVY_SHA256  $tarball" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/trivy-bin"
+          tar -xzf "$tarball" -C "$RUNNER_TEMP/trivy-bin" trivy
+          echo "$RUNNER_TEMP/trivy-bin" >> "$GITHUB_PATH"
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
+          skip-setup-trivy: true
           image-ref: canary-${{ matrix.image }}:scan
           format: table
           exit-code: '1'
