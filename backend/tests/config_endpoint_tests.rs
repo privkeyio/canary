@@ -371,6 +371,10 @@ async fn test_user_preferences_accepts_supported_tx_explorer_ids() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["preferred_tx_explorer_id"], "mempool-space");
 
+    let (status, body) = update_tx_explorer_preference(app.clone(), &token, "mempool-guide").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["preferred_tx_explorer_id"], "mempool-guide");
+
     let (status, body) = update_tx_explorer_preference(app, &token, " bitfeed ").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["preferred_tx_explorer_id"], "bitfeed");
