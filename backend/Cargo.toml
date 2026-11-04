@@ -127,6 +127,6 @@ path = "system_tests/blake2b_hardfork_headers.rs"
 # bdk_wallet and bdk_electrum need no fork; they inherit the fix through `bitcoin`.
 [patch.crates-io]
 bitcoin = { git = "https://github.com/privkeyio/rust-bitcoin", rev = "e9aa336977e334f29fbe440a0dc0d21fa739fbf6" }
-electrum-client = { git = "https://github.com/privkeyio/rust-electrum-client", rev = "bae28010c620dbe9726499cece1f31066cf217bc" }
+electrum-client = { git = "https://github.com/privkeyio/rust-electrum-client", rev = "e2c8c06315c0aba42e5914ab51ac8d941ecdda9f" }
 # phonenumber needs postcard's std serialization, not embedded heapless atomics.
 postcard = { path = "vendor/postcard" }

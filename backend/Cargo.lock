@@ -1116,8 +1116,8 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "electrum-client"
-version = "0.25.0"
-source = "git+https://github.com/privkeyio/rust-electrum-client?rev=bae28010c620dbe9726499cece1f31066cf217bc#bae28010c620dbe9726499cece1f31066cf217bc"
+version = "0.25.2"
+source = "git+https://github.com/privkeyio/rust-electrum-client?rev=e2c8c06315c0aba42e5914ab51ac8d941ecdda9f#e2c8c06315c0aba42e5914ab51ac8d941ecdda9f"
 dependencies = [
  "bitcoin 0.32.11",
  "byteorder",
