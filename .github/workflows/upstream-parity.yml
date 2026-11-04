@@ -1,0 +1,53 @@
+name: Upstream Parity
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APP_UPSTREAM: schjonhaug/canary
+    steps:
+      - run: |
+          set -euo pipefail
+
+          # Opens, updates or closes the bot's issue with this title. An empty body means caught up.
+          report() {
+            issue=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+              --jq ".[] | select(.title == \"$1\" and .user.login == \"github-actions[bot]\" and (.pull_request | not)) | .number" | sed -n 1p)
+            if [ -z "$2" ]; then
+              if [ -n "$issue" ]; then
+                gh api "repos/$GITHUB_REPOSITORY/issues/$issue/comments" -f body="Caught up." >/dev/null
+                gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/$issue" -f state=closed >/dev/null
+              fi
+            elif [ -n "$issue" ]; then
+              gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/$issue" -f body="$2" >/dev/null
+            else
+              gh api "repos/$GITHUB_REPOSITORY/issues" -f title="$1" -f body="$2" >/dev/null
+            fi
+          }
+
+          latest=$(gh api "repos/$APP_UPSTREAM/releases?per_page=50" \
+            --jq '.[] | select((.prerelease or .draft) | not) | .tag_name | select(test("^v?[0-9]+(\\.[0-9]+)*$"))' | sort -V | tail -1)
+          [ -n "$latest" ] || { echo "::error::no stable numeric release found in $APP_UPSTREAM"; exit 1; }
+          behind=$(gh api "repos/$GITHUB_REPOSITORY/compare/master...${APP_UPSTREAM%%/*}:${APP_UPSTREAM#*/}:$latest" --jq .ahead_by)
+          [[ "$behind" =~ ^[0-9]+$ ]] || { echo "::error::compare returned '$behind'"; exit 1; }
+          body=""
+          if [ "$behind" -ne 0 ]; then
+            body="$APP_UPSTREAM $latest has $behind commit(s) that master does not. Merge it, keeping the \`[patch.crates-io]\` entries:
+
+          \`\`\`sh
+          git fetch upstream --tags
+          git merge $latest
+          \`\`\`"
+          fi
+          report "Behind the upstream release" "$body"
