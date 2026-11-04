@@ -272,7 +272,7 @@ async fn test_config_endpoint_self_hosted_with_multiple_tx_explorers() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let body = body_to_json(response.into_body()).await;
-    assert_eq!(body["default_tx_explorer_id"], "mempool-space");
+    assert_eq!(body["default_tx_explorer_id"], "mempool-guide");
     assert_eq!(body["tx_explorers"][0]["port"], 3006);
     assert_eq!(body["tx_explorers"][1]["id"], "bitfeed");
     assert_eq!(body["tx_explorers"][1]["port"], 8314);
@@ -302,7 +302,7 @@ async fn test_config_endpoint_self_hosted_no_mempool_config() {
 
     let body = body_to_json(response.into_body()).await;
     assert!(body["tx_explorers"].as_array().unwrap().is_empty());
-    assert_eq!(body["default_tx_explorer_id"], "mempool-space");
+    assert_eq!(body["default_tx_explorer_id"], "mempool-guide");
 }
 
 #[tokio::test]
@@ -337,7 +337,7 @@ async fn test_config_endpoint_cloud_mode_ignores_self_hosted_tx_explorers() {
 
     let body = body_to_json(response.into_body()).await;
     assert!(body["tx_explorers"].as_array().unwrap().is_empty());
-    assert_eq!(body["default_tx_explorer_id"], "mempool-space");
+    assert_eq!(body["default_tx_explorer_id"], "mempool-guide");
 }
 
 #[tokio::test]

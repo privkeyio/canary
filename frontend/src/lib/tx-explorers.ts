@@ -14,6 +14,12 @@ export const CUSTOM_TX_EXPLORER_PREFIX = "custom:"
 
 export const PUBLIC_TX_EXPLORERS: TxExplorerOption[] = [
   {
+    id: "mempool-guide",
+    name: "Mempool Guide",
+    baseUrl: "https://mempool.guide",
+    isLocal: false,
+  },
+  {
     id: "mempool-space",
     name: "Mempool Space",
     baseUrl: "https://mempool.space",

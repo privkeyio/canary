@@ -6,7 +6,7 @@ This is an unofficial fork of [Canary](https://github.com/schjonhaug/canary) tha
 
 ## What differs from upstream
 
-Nothing in Canary's own code. Past the activation height a block header is 164 bytes and its id is a BLAKE2b hash rather than 80 bytes and SHA256d; stock rust-bitcoin parses 80 and rejects the rest, so every header lookup fails with `parse failed: data not consumed entirely when explicitly deserializing`, no wallet syncs, and the queue backs up indefinitely.
+Past the activation height a block header is 164 bytes and its id is a BLAKE2b hash rather than 80 bytes and SHA256d. Stock rust-bitcoin parses 80 and rejects the rest, so every header lookup fails with `parse failed: data not consumed entirely when explicitly deserializing`, no wallet syncs, and the queue backs up indefinitely.
 
 The fix is entirely in the dependencies, pinned by immutable git rev in `backend/Cargo.toml`:
 
@@ -16,6 +16,8 @@ The fix is entirely in the dependencies, pinned by immutable git rev in `backend
 | `electrum-client` | [privkeyio/rust-electrum-client](https://github.com/privkeyio/rust-electrum-client) | Splits a batch of concatenated headers by length rather than a fixed 80 byte stride |
 
 `bdk_wallet` and `bdk_electrum` need no fork; they inherit the fix through `bitcoin`. A build guard in `backend/src/lib.rs` fails the build outright if the patched crates are ever missing, rather than letting the mis-parse surface at runtime past the activation height.
+
+The only change to Canary's own code is the default public transaction explorer. It is [mempool.guide](https://mempool.guide), which follows BLAKE2b, rather than mempool.space, which does not show blocks past the activation height. mempool.space, Bitfeed and BTC RPC Explorer stay selectable, and a local explorer or a saved choice still takes precedence.
 
 ## Requires a Knots-backed Electrum server
 

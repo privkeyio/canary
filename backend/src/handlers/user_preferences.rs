@@ -194,7 +194,10 @@ pub async fn update_user_preferences(
                         canonical_custom_tx_explorer_id(preferred_tx_explorer_id);
                     let is_supported_public_explorer = matches!(
                         preferred_tx_explorer_id,
-                        "mempool-space" | "bitfeed-public" | "btc-rpc-explorer-public"
+                        "mempool-guide"
+                            | "mempool-space"
+                            | "bitfeed-public"
+                            | "btc-rpc-explorer-public"
                     );
                     let is_configured_local_explorer = config.is_self_hosted_mode()
                         && config

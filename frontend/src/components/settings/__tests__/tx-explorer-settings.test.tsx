@@ -48,17 +48,17 @@ describe("TxExplorerSettings", () => {
       <TxExplorerSettings
         {...defaultProps}
         explorers={[DEFAULT_TX_EXPLORER, localMempool]}
-        selectedExplorerId="mempool-space"
+        selectedExplorerId="mempool-guide"
       />
     )
 
     expect(screen.getByText("Transaction Explorer")).toBeInTheDocument()
     expect(screen.queryByText("Public")).not.toBeInTheDocument()
     expect(screen.getByText("Mempool")).toBeInTheDocument()
-    expect(screen.getByLabelText("https://mempool.space")).toBeInTheDocument()
+    expect(screen.getByLabelText("https://mempool.guide")).toBeInTheDocument()
     expect(screen.getByLabelText("Umbrel")).toBeInTheDocument()
     expect(screen.getByAltText("Mempool logo")).toBeInTheDocument()
-    expect(screen.getByText("https://mempool.space")).toBeInTheDocument()
+    expect(screen.getByText("https://mempool.guide")).toBeInTheDocument()
     expect(screen.getByText("Umbrel")).toBeInTheDocument()
     expect(screen.queryByText("http://umbrel.local:3006")).not.toBeInTheDocument()
   })
